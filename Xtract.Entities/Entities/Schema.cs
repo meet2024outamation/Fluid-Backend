@@ -14,9 +14,9 @@ public class Schema
 
     public string? Description { get; set; }
 
-    [Required]
-    [Column(TypeName = "text")]
-    public string Fields { get; set; } = string.Empty; // JSON field definitions
+    //[Required]
+    //[Column(TypeName = "text")]
+    //public string Fields { get; set; } = string.Empty; // JSON field definitions
 
     public int Version { get; set; } = 1;
 

@@ -14,6 +14,8 @@ builder.Services.AddHttpContextAccessor();
 // Register application services
 builder.Services.AddScoped<IClientService, ClientService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IBatchService, BatchService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 
 // Add CORS
 builder.Services.AddCors(options =>
@@ -25,7 +27,7 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
-
+builder.Services.AddDistributedMemoryCache();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<XtractDbContext>(options =>
@@ -236,53 +238,6 @@ static async Task SeedDatabaseAsync(XtractDbContext context, ILogger logger)
             }
 
             logger.LogInformation("✅ Default users seeded successfully!");
-        }
-
-        // Seed default modules if none exist
-        if (!await context.Modules.AnyAsync())
-        {
-            logger.LogInformation("Seeding default modules...");
-
-            var modules = new[]
-            {
-                new Module
-                {
-                    Name = "Administration",
-                    Code = "ADMIN",
-                    IsActive = true,
-                    DisplayOrder = 1,
-                    CreatedDateTime = DateTimeOffset.UtcNow
-                },
-                new Module
-                {
-                    Name = "Configuration",
-                    Code = "CONFIG",
-                    IsActive = true,
-                    DisplayOrder = 2,
-                    CreatedDateTime = DateTimeOffset.UtcNow
-                },
-                new Module
-                {
-                    Name = "Operations",
-                    Code = "OPS",
-                    IsActive = true,
-                    DisplayOrder = 3,
-                    CreatedDateTime = DateTimeOffset.UtcNow
-                },
-                new Module
-                {
-                    Name = "Reports",
-                    Code = "REPORTS",
-                    IsActive = true,
-                    DisplayOrder = 4,
-                    CreatedDateTime = DateTimeOffset.UtcNow
-                }
-            };
-
-            context.Modules.AddRange(modules);
-            await context.SaveChangesAsync();
-
-            logger.LogInformation("✅ Default modules seeded successfully!");
         }
 
         // Seed default permissions if none exist

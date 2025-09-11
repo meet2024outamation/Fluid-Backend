@@ -212,9 +212,7 @@ public class XtractDbContext : DbContext
         modelBuilder.Entity<OrderData>(entity =>
         {
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.DataSource)
-                  .HasConversion<string>()
-                  .HasMaxLength(50);
+
             entity.HasIndex(e => new { e.OrderId, e.SchemaFieldId }).IsUnique();
 
             entity.HasOne(e => e.Order)

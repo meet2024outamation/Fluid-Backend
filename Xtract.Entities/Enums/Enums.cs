@@ -31,7 +31,6 @@ public enum WorkItemStatus
     ValidationError,
     ReadyForAI,
     AIProcessing,
-    AICompleted,
     ReadyForAssignment,
     Assigned,
     InProgress,

@@ -7,10 +7,10 @@ public class User
 {
     [Key]
     public int Id { get; set; }
-    
-    [StringLength(20)] 
+
+    [StringLength(20)]
     public string? Phone { get; set; }
-    
+
     [Required]
     [StringLength(100)]
     public string AzureAdId { get; set; } = string.Empty;
@@ -51,9 +51,7 @@ public class User
     [InverseProperty("User")]
     public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
 
-    // Navigation properties for module system
-    [InverseProperty("User")]
-    public virtual ICollection<UserModule> UserModules { get; set; } = new List<UserModule>();
+
 
     // Role-related creation/modification navigation properties
     [InverseProperty("CreatedBy")]
@@ -67,8 +65,4 @@ public class User
 
     [InverseProperty("ModifiedBy")]
     public virtual ICollection<UserRole> UserRoleModifiedBies { get; set; } = new List<UserRole>();
-
-    // UserModule modification navigation property
-    [InverseProperty("ModifiedBy")]
-    public virtual ICollection<UserModule> UserModuleModifiedBies { get; set; } = new List<UserModule>();
 }

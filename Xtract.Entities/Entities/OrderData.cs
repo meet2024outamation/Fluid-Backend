@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Xtract.Entities.Enums;
 
 namespace Xtract.Entities.Entities;
 
@@ -18,9 +17,8 @@ public class OrderData
     [Column(TypeName = "text")]
     public string? ProcessedValue { get; set; } // cleaned/formatted value
 
-    [Required]
-    public DataSource DataSource { get; set; }
-
+    [Column(TypeName = "text")]
+    public string? MetaDataValue { get; set; }
     [Column(TypeName = "decimal(5,4)")]
     public decimal? ConfidenceScore { get; set; } // AI confidence or manual certainty
 

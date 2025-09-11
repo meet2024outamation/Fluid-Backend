@@ -1,98 +1,71 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using SharedKernel.Models;
 
 namespace SharedKernel.Services
 {
     public interface IUser
     {
-        public int Id { get; }
+        public int Id { get; }//bind UserId or ServicePrincipalId
         public string? FirstName { get; }
         public string? LastName { get; }
         public string Name => $"{FirstName} {LastName}";
+
         public string? Email { get; }
+
+        public bool IsActive { get; }
+        public string? ConnectionString { get; }
         public HashSet<string> Modules { get; }
         public HashSet<string> Permissions { get; }
-        public string? UserStatus { get; }
-        public bool IsServicePrincipal { get; }
+        public bool IsServicePrinciple { get; set; }
+        public string? ClientName { get; set; }
+        public int? ClientId { get; set; }
+        public int? AbstractorId { get; set; }
+
+        public string? IpAddress { get; set; }
+        public int? UserTypeId { get; set; }
+        public int? TeamId { get; set; }
+        public ICollection<UserRoles> Roles { get; set; }
     }
 
 
 
-    public class TokenHandler : DelegatingHandler
+    public class TokenHandler(IHttpContextAccessor httpContextAccessor, ILogger<TokenHandler> logger)
+        : DelegatingHandler
     {
-        private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly ILogger<TokenHandler> _logger;
-
-        public TokenHandler(IHttpContextAccessor httpContextAccessor, ILogger<TokenHandler> logger)
-        {
-            _httpContextAccessor = httpContextAccessor;
-            _logger = logger;
-        }
-
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
 
-            var headersInfo = ExtractTokenAndHeaders();
-            if (headersInfo != null)
+            var token = ExtractToken();
+            logger.LogInformation(new { call = "Share AuthService:", Data = token, EmailAddress = httpContextAccessor.HttpContext!.User.FindFirst("preferred_username")?.Value }.ToString());
+            if (!string.IsNullOrEmpty(token))
             {
-                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", headersInfo.Token);
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
             }
 
             return await base.SendAsync(request, cancellationToken);
         }
 
-        private HeadersInfo? ExtractTokenAndHeaders()
+        private string ExtractToken()
         {
-            var httpContext = _httpContextAccessor.HttpContext;
+            var httpContext = httpContextAccessor.HttpContext;
             if (httpContext != null)
             {
-                return new HeadersInfo
-                {
-                    Token = httpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", ""),
-                };
+                return httpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             }
-            return null;
+            return string.Empty;
         }
     }
 
-    public class ServicePrincipalHttpClientHandler : DelegatingHandler
+    public class AuthService(IUser user)
     {
-        private readonly ITokenService _tokenService;
-        private readonly AzureADConfig _azureADConfig;
-        public ServicePrincipalHttpClientHandler(ITokenService tokenService, IOptions<AzureADConfig> azureADConfig)
-        {
-            _tokenService = tokenService;
-            _azureADConfig = azureADConfig.Value;
-        }
-
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            string token = await _tokenService.GetAccessTokenAsync(new List<string> { $"api://{_azureADConfig.ClientId}/.default" });
-
-            // Add the token to the request headers
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-
-            // Call the base class implementation
-            return await base.SendAsync(request, cancellationToken);
-        }
-    }
-
-
-    public class AuthService
-    {
-        protected readonly IUser _user;
-        public AuthService(IUser user)
-        {
-            this._user = user;
-        }
+        protected readonly IUser _user = user;
     }
     public class UserRoles
     {
         public int RoleId { get; set; }
         public string RoleName { get; set; } = string.Empty;
     }
+
     public class UserBasicInfo
     {
         public int Id { get; set; }
@@ -126,7 +99,7 @@ namespace SharedKernel.Services
     {
         //public string ConnectionString { get; set; } = null!;
         //public string? ServicePrincipalName { get; set; }
-        public HashSet<string> Modules { get; set; } = null!;
+        //public HashSet<string> Modules { get; set; } = null!;
         public HashSet<string> Permissions { get; set; } = null!;
         //public string CurrentTenantCode { get; set; } = null!;
         public bool IsServicePrinciple { get; set; } = false;
@@ -136,9 +109,21 @@ namespace SharedKernel.Services
     }
 
 
-    public class HeadersInfo
-    {
-        public string? Token { get; set; }
 
+    public class UrlsConfig
+    {
+        public string IAMUrl { get; set; } = string.Empty;
+
+    }
+
+
+    public class TokenOptions
+    {
+        public string Name { get; set; } = string.Empty;
+        public string ClientId { get; set; } = null!;
+        public string ClientSecret { get; set; } = null!;
+        public string Scope { get; set; } = null!;
+        public string GrantType { get; set; } = null!;
+        public string TokenUrl { get; set; } = null!;
     }
 }
