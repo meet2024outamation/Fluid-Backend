@@ -14,9 +14,9 @@
     <PackageReference Include="FluentEmail.SendGrid" Version="3.0.2" />
     <PackageReference Include="FluentEmail.Smtp" Version="3.0.2" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="8.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.9" />
     <PackageReference Include="Microsoft.Identity.Abstractions" Version="9.0.0" />
     <PackageReference Include="Microsoft.Identity.Web" Version="3.8.3" />
     <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.2.2" />
@@ -29,6 +29,6 @@
   </ItemGroup>
 
  <ItemGroup>
-   <ProjectReference Include="..\Xtract.Entities\Xtract.Entities.csproj" />
+   <ProjectReference Include="..\Fluid.Entities\Fluid.Entities.csproj" />
  </ItemGroup>
 </Project>

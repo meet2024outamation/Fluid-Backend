@@ -1,0 +1,673 @@
+@Xtract.API_HostAddress = http://localhost:5086
+
+# ==============================================
+# SWAGGER DOCUMENTATION ACCESS
+# ==============================================
+
+### Open Swagger UI directly (HTTP)
+GET {{Xtract.API_HostAddress}}/swagger
+Accept: text/html
+
+###
+
+### Open Swagger UI directly (HTTPS)
+GET https://localhost:7253/swagger
+Accept: text/html
+
+###
+
+### Get Swagger JSON schema
+GET {{Xtract.API_HostAddress}}/swagger/v1/swagger.json
+Accept: application/json
+
+###
+
+### Test basic API connectivity
+GET {{Xtract.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+
+# ==============================================
+# SCHEMA OPERATIONS
+# ==============================================
+
+### Get all schemas
+GET {{Xtract.API_HostAddress}}/api/schemas
+Accept: application/json
+
+###
+
+### Get schemas assigned to a specific client
+GET {{Xtract.API_HostAddress}}/api/schemas?clientId=1
+Accept: application/json
+
+###
+
+### Get schemas assigned to another client
+GET {{Xtract.API_HostAddress}}/api/schemas?clientId=2
+Accept: application/json
+
+###
+
+### Test with non-existent client ID (should return validation error)
+GET {{Xtract.API_HostAddress}}/api/schemas?clientId=999
+Accept: application/json
+
+###
+
+### Get schema by ID with full details
+GET {{Xtract.API_HostAddress}}/api/schemas/1
+Accept: application/json
+
+###
+
+### Get another schema by ID
+GET {{Xtract.API_HostAddress}}/api/schemas/2
+Accept: application/json
+
+###
+
+### Test non-existent schema ID (should return 404)
+GET {{Xtract.API_HostAddress}}/api/schemas/999
+Accept: application/json
+
+###
+
+### Create a new schema with schema fields
+POST {{Xtract.API_HostAddress}}/api/schemas
+Content-Type: application/json
+
+{
+  "Name": "Mortgage Processing Schema",
+  "Description": "Schema for processing mortgage loan applications",
+  "SchemaFields": [
+    {
+      "FieldName": "loan_id",
+      "FieldLabel": "Loan ID",
+      "DataType": "String",
+      "IsRequired": true,
+      "DisplayOrder": 1
+    },
+    {
+      "FieldName": "borrower_name",
+      "FieldLabel": "Borrower Full Name",
+      "DataType": "String",
+      "IsRequired": true,
+      "DisplayOrder": 2
+    },
+    {
+      "FieldName": "loan_amount",
+      "FieldLabel": "Loan Amount",
+      "DataType": "Decimal",
+      "Format": "currency",
+      "IsRequired": true,
+      "DisplayOrder": 3
+    },
+    {
+      "FieldName": "property_address",
+      "FieldLabel": "Property Address",
+      "DataType": "String",
+      "IsRequired": true,
+      "DisplayOrder": 4
+    },
+    {
+      "FieldName": "application_date",
+      "FieldLabel": "Application Date",
+      "DataType": "Date",
+      "Format": "MM/dd/yyyy",
+      "IsRequired": false,
+      "DisplayOrder": 5
+    },
+    {
+      "FieldName": "credit_score",
+      "FieldLabel": "Credit Score",
+      "DataType": "Integer",
+      "IsRequired": false,
+      "DisplayOrder": 6
+    },
+    {
+      "FieldName": "is_approved",
+      "FieldLabel": "Is Approved",
+      "DataType": "Boolean",
+      "IsRequired": false,
+      "DisplayOrder": 7
+    }
+  ]
+}
+
+###
+
+### Create another schema example
+POST {{Xtract.API_HostAddress}}/api/schemas
+Content-Type: application/json
+
+{
+  "Name": "Insurance Claims Schema",
+  "Description": "Schema for processing insurance claims",
+  "SchemaFields": [
+    {
+      "FieldName": "claim_id",
+      "FieldLabel": "Claim ID",
+      "DataType": "String",
+      "IsRequired": true,
+      "DisplayOrder": 1
+    },
+    {
+      "FieldName": "claimant_name",
+      "FieldLabel": "Claimant Name",
+      "DataType": "String",
+      "IsRequired": true,
+      "DisplayOrder": 2
+    },
+    {
+      "FieldName": "claim_amount",
+      "FieldLabel": "Claim Amount",
+      "DataType": "Decimal",
+      "Format": "currency",
+      "IsRequired": true,
+      "DisplayOrder": 3
+    },
+    {
+      "FieldName": "incident_date",
+      "FieldLabel": "Incident Date",
+      "DataType": "Date",
+      "Format": "yyyy-MM-dd",
+      "IsRequired": true,
+      "DisplayOrder": 4
+    },
+    {
+      "FieldName": "policy_number",
+      "FieldLabel": "Policy Number",
+      "DataType": "String",
+      "IsRequired": true,
+      "DisplayOrder": 5
+    }
+  ]
+}
+
+###
+
+### Update an existing schema
+PUT {{Xtract.API_HostAddress}}/api/schemas/1
+Content-Type: application/json
+
+{
+  "Name": "Updated Mortgage Processing Schema",
+  "Description": "Updated schema for processing mortgage loan applications with additional fields",
+  "SchemaFields": [
+    {
+      "FieldName": "loan_id",
+      "FieldLabel": "Loan ID",
+      "DataType": "String",
+      "IsRequired": true,
+      "DisplayOrder": 1
+    },
+    {
+      "FieldName": "borrower_name",
+      "FieldLabel": "Borrower Full Name",
+      "DataType": "String",
+      "IsRequired": true,
+      "DisplayOrder": 2
+    },
+    {
+      "FieldName": "loan_amount",
+      "FieldLabel": "Loan Amount",
+      "DataType": "Decimal",
+      "Format": "currency",
+      "IsRequired": true,
+      "DisplayOrder": 3
+    },
+    {
+      "FieldName": "property_address",
+      "FieldLabel": "Property Address",
+      "DataType": "String",
+      "IsRequired": true,
+      "DisplayOrder": 4
+    },
+    {
+      "FieldName": "application_date",
+      "FieldLabel": "Application Date",
+      "DataType": "Date",
+      "Format": "MM/dd/yyyy",
+      "IsRequired": false,
+      "DisplayOrder": 5
+    },
+    {
+      "FieldName": "credit_score",
+      "FieldLabel": "Credit Score",
+      "DataType": "Integer",
+      "IsRequired": false,
+      "DisplayOrder": 6
+    },
+    {
+      "FieldName": "is_approved",
+      "FieldLabel": "Is Approved",
+      "DataType": "Boolean",
+      "IsRequired": false,
+      "DisplayOrder": 7
+    },
+    {
+      "FieldName": "interest_rate",
+      "FieldLabel": "Interest Rate",
+      "DataType": "Decimal",
+      "Format": "percentage",
+      "IsRequired": false,
+      "DisplayOrder": 8
+    },
+    {
+      "FieldName": "loan_term_months",
+      "FieldLabel": "Loan Term (Months)",
+      "DataType": "Integer",
+      "IsRequired": false,
+      "DisplayOrder": 9
+    }
+  ]
+}
+
+###
+
+### Update schema status (activate/deactivate)
+PATCH {{Xtract.API_HostAddress}}/api/schemas/1/status
+Content-Type: application/json
+
+{
+  "IsActive": false
+}
+
+###
+
+### Reactivate schema
+PATCH {{Xtract.API_HostAddress}}/api/schemas/1/status
+Content-Type: application/json
+
+{
+  "IsActive": true
+}
+
+###
+
+### Delete a schema (will fail if used by field mappings)
+DELETE {{Xtract.API_HostAddress}}/api/schemas/2
+Accept: application/json
+
+###
+
+### Test delete non-existent schema (should return 404)
+DELETE {{Xtract.API_HostAddress}}/api/schemas/999
+Accept: application/json
+
+###
+
+# ==============================================
+# SIMPLE FIELD MAPPING OPERATIONS
+# ==============================================
+
+### Create multiple field mappings in bulk (recommended approach)
+POST {{Xtract.API_HostAddress}}/api/simple-field-mappings/bulk
+Content-Type: application/json
+
+{
+  "ClientId": 1,
+  "SchemaId": 1,
+  "FieldMappings": [
+    {
+      "SchemaFieldId": 1,
+      "InputField": "loan_id",
+      "Transformation": null
+    },
+    {
+      "SchemaFieldId": 2,
+      "InputField": "borrower_name",
+      "Transformation": null
+    },
+    {
+      "SchemaFieldId": 3,
+      "InputField": "loan_amount",
+      "Transformation": "parseFloat(value)"
+    },
+    {
+      "SchemaFieldId": 4,
+      "InputField": "property_address",
+      "Transformation": null
+    },
+    {
+      "SchemaFieldId": 5,
+      "InputField": "application_date",
+      "Transformation": "parseDate(value, 'MM/DD/YYYY')"
+    }
+  ]
+}
+
+###
+
+### Create a single field mapping
+POST {{Xtract.API_HostAddress}}/api/simple-field-mappings
+Content-Type: application/json
+
+{
+  "ClientId": 1,
+  "SchemaId": 1,
+  "SchemaFieldId": 1,
+  "InputField": "borrower_name",
+  "Transformation": null
+}
+
+###
+
+### Get field mappings by client ID
+GET {{Xtract.API_HostAddress}}/api/simple-field-mappings/client/1
+Accept: application/json
+
+###
+
+# ==============================================
+# CLIENT OPERATIONS
+# ==============================================
+
+### Get all clients
+GET {{Xtract.API_HostAddress}}/api/clients
+Accept: application/json
+
+###
+
+### Get client by ID
+GET {{Xtract.API_HostAddress}}/api/clients/1
+Accept: application/json
+
+###
+
+### Create a new client
+POST {{Xtract.API_HostAddress}}/api/clients
+Content-Type: application/json
+
+{
+  "Name": "ABC Financial Services",
+  "Code": "ABC001",
+  "IsActive": true
+}
+
+###
+
+### Assign schemas to a client
+POST {{Xtract.API_HostAddress}}/api/clients/assign-schemas
+Content-Type: application/json
+
+{
+  "ClientId": 1,
+  "SchemaIds": [1, 2]
+}
+
+###
+
+### Assign multiple schemas to a client
+POST {{Xtract.API_HostAddress}}/api/clients/assign-schemas
+Content-Type: application/json
+
+{
+  "ClientId": 1,
+  "SchemaIds": [1, 2, 3]
+}
+
+###
+
+### Assign single schema to a client
+POST {{Xtract.API_HostAddress}}/api/clients/assign-schemas
+Content-Type: application/json
+
+{
+  "ClientId": 2,
+  "SchemaIds": [1]
+}
+
+###
+
+### Update a client
+PUT {{Xtract.API_HostAddress}}/api/clients/1
+Content-Type: application/json
+
+{
+  "Name": "ABC Financial Services Updated",
+  "Code": "ABC001",
+  "IsActive": true
+}
+
+###
+
+### Update client status (activate/deactivate)
+PATCH {{Xtract.API_HostAddress}}/api/clients/1/status
+Content-Type: application/json
+
+{
+  "IsActive": false
+}
+
+###
+
+### Reactivate client
+PATCH {{Xtract.API_HostAddress}}/api/clients/1/status
+Content-Type: application/json
+
+{
+  "IsActive": true
+}
+
+###
+
+### Delete a client (will fail if client has batches or field mappings)
+DELETE {{Xtract.API_HostAddress}}/api/clients/2
+Accept: application/json
+
+###
+
+### Test delete non-existent client (should return 404)
+DELETE {{Xtract.API_HostAddress}}/api/clients/999
+Accept: application/json
+
+###
+
+### Create another client example
+POST {{Xtract.API_HostAddress}}/api/clients
+Content-Type: application/json
+
+{
+  "Name": "XYZ Mortgage Company",
+  "Code": "XYZ002", 
+  "IsActive": true
+}
+
+###
+
+# WORKFLOW EXAMPLES
+# ==============================================
+
+# Example workflow for processing mortgage applications
+
+# Step 1: Create a new schema for mortgage applications
+POST {{Xtract.API_HostAddress}}/api/schemas
+Content-Type: application/json
+
+{
+  "Name": "Mortgage Application Schema",
+  "Description": "Schema for mortgage loan applications",
+  "SchemaFields": [
+    {
+      "FieldName": "loan_id",
+      "FieldLabel": "Loan ID",
+      "DataType": "String",
+      "IsRequired": true,
+      "DisplayOrder": 1
+    },
+    {
+      "FieldName": "borrower_name",
+      "FieldLabel": "Borrower Name",
+      "DataType": "String",
+      "IsRequired": true,
+      "DisplayOrder": 2
+    },
+    {
+      "FieldName": "loan_amount",
+      "FieldLabel": "Loan Amount",
+      "DataType": "Decimal",
+      "Format": "currency",
+      "IsRequired": true,
+      "DisplayOrder": 3
+    },
+    {
+      "FieldName": "property_address",
+      "FieldLabel": "Property Address",
+      "DataType": "String",
+      "IsRequired": true,
+      "DisplayOrder": 4
+    },
+    {
+      "FieldName": "application_date",
+      "FieldLabel": "Application Date",
+      "DataType": "Date",
+      "Format": "MM/dd/yyyy",
+      "IsRequired": true,
+      "DisplayOrder": 5
+    }
+  ]
+}
+
+###
+
+# Step 1.1: Verify schema creation
+GET {{Xtract.API_HostAddress}}/api/schemas
+Accept: application/json
+
+###
+
+# Step 2: Create a new client for ABC Financial Services
+POST {{Xtract.API_HostAddress}}/api/clients
+Content-Type: application/json
+
+{
+  "Name": "ABC Financial Services",
+  "Code": "ABC001",
+  "IsActive": true
+}
+
+###
+
+# Step 2.1: Update client status if needed
+PATCH {{Xtract.API_HostAddress}}/api/clients/1/status
+Content-Type: application/json
+
+{
+  "IsActive": true
+}
+
+###
+
+# Step 2.2: Assign schemas to the client
+POST {{Xtract.API_HostAddress}}/api/clients/assign-schemas
+Content-Type: application/json
+
+{
+  "ClientId": 1,
+  "SchemaIds": [1, 2]
+}
+
+###
+
+# Step 2.3: Verify assigned schemas
+GET {{Xtract.API_HostAddress}}/api/schemas?clientId=1
+Accept: application/json
+
+###
+
+# Step 3: Create field mappings for the client and schema
+POST {{Xtract.API_HostAddress}}/api/simple-field-mappings/bulk
+Content-Type: application/json
+
+{
+  "ClientId": 1,
+  "SchemaId": 1,
+  "FieldMappings": [
+    {
+      "SchemaFieldId": 1,
+      "InputField": "loan_id",
+      "Transformation": null
+    },
+    {
+      "SchemaFieldId": 2,
+      "InputField": "borrower_name",
+      "Transformation": null
+    },
+    {
+      "SchemaFieldId": 3,
+      "InputField": "loan_amount",
+      "Transformation": "parseFloat(value)"
+    },
+    {
+      "SchemaFieldId": 4,
+      "InputField": "property_address",
+      "Transformation": null
+    },
+    {
+      "SchemaFieldId": 5,
+      "InputField": "application_date",
+      "Transformation": "parseDate(value, 'MM/DD/YYYY')"
+    }
+  ]
+}
+
+###
+
+# Step 4: Submit a batch for processing (assuming batch API is available)
+POST {{Xtract.API_HostAddress}}/api/batch-submit
+Content-Type: application/json
+
+{
+  "ClientId": 1,
+  "SchemaId": 1,
+  "FileUrl": "http://example.com/path/to/csv/file.csv",
+  "MappingId": 123,
+  "AdditionalParams": {
+    "NotifyUrl": "http://example.com/notify",
+    "Priority": "High"
+  }
+}
+
+###
+
+# Step 5: Check batch status (assuming batch status API is available)
+GET {{Xtract.API_HostAddress}}/api/batch-status/123
+Accept: application/json
+
+###
+
+# ==============================================
+# DEBUGGING EXAMPLES
+# ==============================================
+
+### Test client update
+PUT {{Xtract.API_HostAddress}}/api/clients/1
+Content-Type: application/json
+
+{
+  "Name": "Updated Client Name",
+  "Code": "UPDATED001",
+  "IsActive": true
+}
+
+###
+
+### Test schema assignment
+POST {{Xtract.API_HostAddress}}/api/clients/assign-schemas
+Content-Type: application/json
+
+{
+  "ClientId": 1,
+  "SchemaIds": [1]
+}
+
+###
+
+### Check assigned schemas
+GET {{Xtract.API_HostAddress}}/api/schemas?clientId=1
+Accept: application/json
+
+###

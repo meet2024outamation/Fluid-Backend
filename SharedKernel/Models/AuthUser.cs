@@ -1,15 +1,15 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Fluid.Entities.Context;
+using Microsoft.AspNetCore.Http;
 using SharedKernel.AuthorizeHandler;
 using SharedKernel.Services;
 using System.Security.Claims;
-using Xtract.Entities.Context;
 
 
 namespace SharedKernel.Models
 {
     public class AuthUser : IUser
     {
-        private readonly XtractDbContext _appDbConext;
+        private readonly FluidDbContext _appDbConext;
 
         //private readonly IMemCacheService _cacheService;
 
@@ -41,7 +41,7 @@ namespace SharedKernel.Models
         public int? TeamId { get; set; }
         public ICollection<UserRoles> Roles { get; set; }
 
-        public AppAMUser(XtractDbContext appDbConext, IHttpContextAccessor httpContextAccessor)
+        public AuthUser(FluidDbContext appDbConext, IHttpContextAccessor httpContextAccessor)
         {
             //return;
             _appDbConext = appDbConext;
