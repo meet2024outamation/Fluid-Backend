@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace Fluid.API.Models.Client;
+namespace Fluid.API.Models.Project;
 
-public class CreateClientRequest
+public class CreateProjectRequest
 {
     [Required]
     [StringLength(255, MinimumLength = 1)]
@@ -16,7 +16,7 @@ public class CreateClientRequest
     public bool IsActive { get; set; }
 }
 
-public class UpdateClientRequest
+public class UpdateProjectRequest
 {
     public int Id { get; set; }
 
@@ -32,13 +32,13 @@ public class UpdateClientRequest
     public bool IsActive { get; set; }
 }
 
-public class UpdateClientStatusRequest
+public class UpdateProjectStatusRequest
 {
     [Required]
     public bool IsActive { get; set; }
 }
 
-public class ClientResponse
+public class ProjectResponse
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -50,7 +50,7 @@ public class ClientResponse
     public string CreatedByName { get; set; } = string.Empty;
 }
 
-public class ClientListResponse
+public class ProjectListResponse
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;

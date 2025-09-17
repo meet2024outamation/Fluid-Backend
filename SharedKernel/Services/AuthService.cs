@@ -17,8 +17,8 @@ namespace SharedKernel.Services
         public HashSet<string> Modules { get; }
         public HashSet<string> Permissions { get; }
         public bool IsServicePrinciple { get; set; }
-        public string? ClientName { get; set; }
-        public int? ClientId { get; set; }
+        public string? ProjectName { get; set; }
+        public int? ProjectId { get; set; }
         public int? AbstractorId { get; set; }
 
         public string? IpAddress { get; set; }
@@ -76,7 +76,7 @@ namespace SharedKernel.Services
         public string FirstName { get; set; } = null!;
         public string? MiddleName { get; set; }
         public string LastName { get; set; } = null!;
-        //public int UserType { get; set; }// 1 = Internal, 2 = Clients, 3 = Abstractors
+        //public int UserType { get; set; }// 1 = Internal, 2 = Projects, 3 = Abstractors
         public int UserTypeId { get; set; }
 
         public string UserType =>
@@ -88,10 +88,10 @@ namespace SharedKernel.Services
                 _ => "unknown"
             };
         public int? TeamId { get; set; }
-        public int? ClientId { get; set; }
+        public int? ProjectId { get; set; }
         public int? AbstractorId { get; set; }
 
-        public string? ClientName { get; set; }
+        public string? ProjectName { get; set; }
 
         public bool IsActive { get; set; }
     }
@@ -103,8 +103,8 @@ namespace SharedKernel.Services
         public HashSet<string> Permissions { get; set; } = null!;
         //public string CurrentTenantCode { get; set; } = null!;
         public bool IsServicePrinciple { get; set; } = false;
-        public string? ClientName { get; set; }
-        public int? ClientId { get; set; }
+        public string? ProjectName { get; set; }
+        public int? ProjectId { get; set; }
 
     }
 
@@ -120,8 +120,8 @@ namespace SharedKernel.Services
     public class TokenOptions
     {
         public string Name { get; set; } = string.Empty;
-        public string ClientId { get; set; } = null!;
-        public string ClientSecret { get; set; } = null!;
+        public string ProjectId { get; set; } = null!;
+        public string ProjectSecret { get; set; } = null!;
         public string Scope { get; set; } = null!;
         public string GrantType { get; set; } = null!;
         public string TokenUrl { get; set; } = null!;

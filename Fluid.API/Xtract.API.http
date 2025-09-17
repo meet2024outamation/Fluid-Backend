@@ -38,20 +38,20 @@ Accept: application/json
 
 ###
 
-### Get schemas assigned to a specific client
-GET {{Xtract.API_HostAddress}}/api/schemas?clientId=1
+### Get schemas assigned to a specific project
+GET {{Xtract.API_HostAddress}}/api/schemas?projectId=1
 Accept: application/json
 
 ###
 
-### Get schemas assigned to another client
-GET {{Xtract.API_HostAddress}}/api/schemas?clientId=2
+### Get schemas assigned to another project
+GET {{Xtract.API_HostAddress}}/api/schemas?projectId=2
 Accept: application/json
 
 ###
 
-### Test with non-existent client ID (should return validation error)
-GET {{Xtract.API_HostAddress}}/api/schemas?clientId=999
+### Test with non-existent project ID (should return validation error)
+GET {{Xtract.API_HostAddress}}/api/schemas?projectId=999
 Accept: application/json
 
 ###
@@ -308,7 +308,7 @@ POST {{Xtract.API_HostAddress}}/api/simple-field-mappings/bulk
 Content-Type: application/json
 
 {
-  "ClientId": 1,
+  "ProjectId": 1,
   "SchemaId": 1,
   "FieldMappings": [
     {
@@ -346,7 +346,7 @@ POST {{Xtract.API_HostAddress}}/api/simple-field-mappings
 Content-Type: application/json
 
 {
-  "ClientId": 1,
+  "ProjectId": 1,
   "SchemaId": 1,
   "SchemaFieldId": 1,
   "InputField": "borrower_name",
@@ -355,8 +355,8 @@ Content-Type: application/json
 
 ###
 
-### Get field mappings by client ID
-GET {{Xtract.API_HostAddress}}/api/simple-field-mappings/client/1
+### Get field mappings by project ID
+GET {{Xtract.API_HostAddress}}/api/simple-field-mappings/project/1
 Accept: application/json
 
 ###
@@ -365,20 +365,20 @@ Accept: application/json
 # CLIENT OPERATIONS
 # ==============================================
 
-### Get all clients
-GET {{Xtract.API_HostAddress}}/api/clients
+### Get all projects
+GET {{Xtract.API_HostAddress}}/api/projects
 Accept: application/json
 
 ###
 
-### Get client by ID
-GET {{Xtract.API_HostAddress}}/api/clients/1
+### Get project by ID
+GET {{Xtract.API_HostAddress}}/api/projects/1
 Accept: application/json
 
 ###
 
-### Create a new client
-POST {{Xtract.API_HostAddress}}/api/clients
+### Create a new project
+POST {{Xtract.API_HostAddress}}/api/projects
 Content-Type: application/json
 
 {
@@ -389,41 +389,41 @@ Content-Type: application/json
 
 ###
 
-### Assign schemas to a client
-POST {{Xtract.API_HostAddress}}/api/clients/assign-schemas
+### Assign schemas to a project
+POST {{Xtract.API_HostAddress}}/api/projects/assign-schemas
 Content-Type: application/json
 
 {
-  "ClientId": 1,
+  "ProjectId": 1,
   "SchemaIds": [1, 2]
 }
 
 ###
 
-### Assign multiple schemas to a client
-POST {{Xtract.API_HostAddress}}/api/clients/assign-schemas
+### Assign multiple schemas to a project
+POST {{Xtract.API_HostAddress}}/api/projects/assign-schemas
 Content-Type: application/json
 
 {
-  "ClientId": 1,
+  "ProjectId": 1,
   "SchemaIds": [1, 2, 3]
 }
 
 ###
 
-### Assign single schema to a client
-POST {{Xtract.API_HostAddress}}/api/clients/assign-schemas
+### Assign single schema to a project
+POST {{Xtract.API_HostAddress}}/api/projects/assign-schemas
 Content-Type: application/json
 
 {
-  "ClientId": 2,
+  "ProjectId": 2,
   "SchemaIds": [1]
 }
 
 ###
 
-### Update a client
-PUT {{Xtract.API_HostAddress}}/api/clients/1
+### Update a project
+PUT {{Xtract.API_HostAddress}}/api/projects/1
 Content-Type: application/json
 
 {
@@ -434,8 +434,8 @@ Content-Type: application/json
 
 ###
 
-### Update client status (activate/deactivate)
-PATCH {{Xtract.API_HostAddress}}/api/clients/1/status
+### Update project status (activate/deactivate)
+PATCH {{Xtract.API_HostAddress}}/api/projects/1/status
 Content-Type: application/json
 
 {
@@ -444,8 +444,8 @@ Content-Type: application/json
 
 ###
 
-### Reactivate client
-PATCH {{Xtract.API_HostAddress}}/api/clients/1/status
+### Reactivate project
+PATCH {{Xtract.API_HostAddress}}/api/projects/1/status
 Content-Type: application/json
 
 {
@@ -454,20 +454,20 @@ Content-Type: application/json
 
 ###
 
-### Delete a client (will fail if client has batches or field mappings)
-DELETE {{Xtract.API_HostAddress}}/api/clients/2
+### Delete a project (will fail if project has batches or field mappings)
+DELETE {{Xtract.API_HostAddress}}/api/projects/2
 Accept: application/json
 
 ###
 
-### Test delete non-existent client (should return 404)
-DELETE {{Xtract.API_HostAddress}}/api/clients/999
+### Test delete non-existent project (should return 404)
+DELETE {{Xtract.API_HostAddress}}/api/projects/999
 Accept: application/json
 
 ###
 
-### Create another client example
-POST {{Xtract.API_HostAddress}}/api/clients
+### Create another project example
+POST {{Xtract.API_HostAddress}}/api/projects
 Content-Type: application/json
 
 {
@@ -539,8 +539,8 @@ Accept: application/json
 
 ###
 
-# Step 2: Create a new client for ABC Financial Services
-POST {{Xtract.API_HostAddress}}/api/clients
+# Step 2: Create a new project for ABC Financial Services
+POST {{Xtract.API_HostAddress}}/api/projects
 Content-Type: application/json
 
 {
@@ -551,8 +551,8 @@ Content-Type: application/json
 
 ###
 
-# Step 2.1: Update client status if needed
-PATCH {{Xtract.API_HostAddress}}/api/clients/1/status
+# Step 2.1: Update project status if needed
+PATCH {{Xtract.API_HostAddress}}/api/projects/1/status
 Content-Type: application/json
 
 {
@@ -561,29 +561,29 @@ Content-Type: application/json
 
 ###
 
-# Step 2.2: Assign schemas to the client
-POST {{Xtract.API_HostAddress}}/api/clients/assign-schemas
+# Step 2.2: Assign schemas to the project
+POST {{Xtract.API_HostAddress}}/api/projects/assign-schemas
 Content-Type: application/json
 
 {
-  "ClientId": 1,
+  "ProjectId": 1,
   "SchemaIds": [1, 2]
 }
 
 ###
 
 # Step 2.3: Verify assigned schemas
-GET {{Xtract.API_HostAddress}}/api/schemas?clientId=1
+GET {{Xtract.API_HostAddress}}/api/schemas?projectId=1
 Accept: application/json
 
 ###
 
-# Step 3: Create field mappings for the client and schema
+# Step 3: Create field mappings for the project and schema
 POST {{Xtract.API_HostAddress}}/api/simple-field-mappings/bulk
 Content-Type: application/json
 
 {
-  "ClientId": 1,
+  "ProjectId": 1,
   "SchemaId": 1,
   "FieldMappings": [
     {
@@ -621,7 +621,7 @@ POST {{Xtract.API_HostAddress}}/api/batch-submit
 Content-Type: application/json
 
 {
-  "ClientId": 1,
+  "ProjectId": 1,
   "SchemaId": 1,
   "FileUrl": "http://example.com/path/to/csv/file.csv",
   "MappingId": 123,
@@ -640,34 +640,84 @@ Accept: application/json
 ###
 
 # ==============================================
-# DEBUGGING EXAMPLES
+# COMPLETE WORKFLOW SCENARIOS
 # ==============================================
 
-### Test client update
-PUT {{Xtract.API_HostAddress}}/api/clients/1
+# Complete User & Project Management Workflow
+# Step 1: Create a user first
+POST {{Xtract.API_HostAddress}}/api/users
 Content-Type: application/json
 
 {
-  "Name": "Updated Client Name",
-  "Code": "UPDATED001",
-  "IsActive": true
+  "FirstName": "Admin",
+  "LastName": "User",
+  "Email": "admin.user@company.com",
+  "IsActive": true,
+  "UserType": 1,
+  "Title": "System Administrator",
+  "Department": "IT",
+  "RoleIds": [1]
 }
 
 ###
 
-### Test schema assignment
-POST {{Xtract.API_HostAddress}}/api/clients/assign-schemas
-Content-Type: application/json
-
-{
-  "ClientId": 1,
-  "SchemaIds": [1]
-}
-
-###
-
-### Check assigned schemas
-GET {{Xtract.API_HostAddress}}/api/schemas?clientId=1
+# Step 1.1: Get current user info
+GET {{Xtract.API_HostAddress}}/api/users/me
 Accept: application/json
+
+###
+
+# ==============================================
+# DEBUGGING & TESTING SECTION
+# ==============================================
+
+### Get current user for debugging
+GET {{Xtract.API_HostAddress}}/api/users/me
+Accept: application/json
+
+###
+
+### List all users to see current state
+GET {{Xtract.API_HostAddress}}/api/users
+Accept: application/json
+
+###
+
+### Test user creation
+POST {{Xtract.API_HostAddress}}/api/users
+Content-Type: application/json
+
+{
+  "FirstName": "Test",
+  "LastName": "User",
+  "Email": "test.user@debug.com",
+  "IsActive": true,
+  "UserType": 1,
+  "RoleIds": [1]
+}
+
+###
+
+### Test user update
+PUT {{Xtract.API_HostAddress}}/api/users/1
+Content-Type: application/json
+
+{
+  "FirstName": "Updated",
+  "LastName": "TestUser",
+  "Email": "updated.test@debug.com",
+  "IsActive": true,
+  "UserType": 1
+}
+
+###
+
+### Test user status change
+PATCH {{Xtract.API_HostAddress}}/api/users/1/status
+Content-Type: application/json
+
+{
+  "IsActive": false
+}
 
 ###

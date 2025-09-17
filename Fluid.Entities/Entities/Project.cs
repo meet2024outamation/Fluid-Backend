@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Fluid.Entities.Entities;
 
-public class Client
+public class Project
 {
     [Key]
     public int Id { get; set; }
@@ -28,8 +28,8 @@ public class Client
 
     // Navigation properties
     public User CreatedByUser { get; set; } = null!;
-    public ICollection<ClientSchema> ClientSchemas { get; set; } = new List<ClientSchema>();
+    public ICollection<ProjectSchema> ProjectSchemas { get; set; } = new List<ProjectSchema>();
     public ICollection<Batch> Batches { get; set; } = new List<Batch>();
-    public ICollection<Order> WorkItems { get; set; } = new List<Order>();
+    public ICollection<Order> Orders { get; set; } = new List<Order>();
     public ICollection<FieldMapping> FieldMappings { get; set; } = new List<FieldMapping>();
 }

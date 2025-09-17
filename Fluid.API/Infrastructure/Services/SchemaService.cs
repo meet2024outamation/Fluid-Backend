@@ -107,7 +107,7 @@ public class SchemaService : ISchemaService
         }
     }
 
-    public async Task<Result<List<SchemaListResponse>>> GetAllAsync(int? clientId = null)
+    public async Task<Result<List<SchemaListResponse>>> GetAllAsync(int? projectId = null)
     {
         try
         {
@@ -116,25 +116,25 @@ public class SchemaService : ISchemaService
                 .Include(s => s.SchemaFields)
                 .AsQueryable();
 
-            // Filter by clientId if provided
-            if (clientId.HasValue)
+            // Filter by projectId if provided
+            if (projectId.HasValue)
             {
-                // Validate client exists
-                var clientExists = await _context.Clients
-                    .AnyAsync(c => c.Id == clientId.Value);
+                // Validate project exists
+                var projectExists = await _context.Projects
+                    .AnyAsync(c => c.Id == projectId.Value);
 
-                if (!clientExists)
+                if (!projectExists)
                 {
                     var validationError = new ValidationError
                     {
-                        Key = nameof(clientId),
-                        ErrorMessage = "Client not found."
+                        Key = nameof(projectId),
+                        ErrorMessage = "Project not found."
                     };
                     return Result<List<SchemaListResponse>>.Invalid(new List<ValidationError> { validationError });
                 }
 
-                // Filter schemas assigned to the client
-                query = query.Where(s => s.ClientSchemas.Any(cs => cs.ClientId == clientId.Value));
+                // Filter schemas assigned to the project
+                query = query.Where(s => s.ProjectSchemas.Any(cs => cs.ProjectId == projectId.Value));
             }
 
             var schemas = await query
@@ -153,19 +153,19 @@ public class SchemaService : ISchemaService
                 CreatedByName = s.CreatedByUser.Name
             }).ToList();
 
-            var message = clientId.HasValue 
-                ? $"Retrieved {responses.Count} schemas for client {clientId.Value} successfully"
+            var message = projectId.HasValue 
+                ? $"Retrieved {responses.Count} schemas for project {projectId.Value} successfully"
                 : $"Retrieved {responses.Count} schemas successfully";
 
-            _logger.LogInformation("Retrieved {Count} schemas{ClientFilter}", responses.Count, 
-                clientId.HasValue ? $" for client {clientId.Value}" : "");
+            _logger.LogInformation("Retrieved {Count} schemas{ProjectFilter}", responses.Count, 
+                projectId.HasValue ? $" for project {projectId.Value}" : "");
             
             return Result<List<SchemaListResponse>>.Success(responses, message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving schemas{ClientFilter}", 
-                clientId.HasValue ? $" for client {clientId.Value}" : "");
+            _logger.LogError(ex, "Error retrieving schemas{ProjectFilter}", 
+                projectId.HasValue ? $" for project {projectId.Value}" : "");
             return Result<List<SchemaListResponse>>.Error("An error occurred while retrieving schemas.");
         }
     }

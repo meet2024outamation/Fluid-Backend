@@ -9,7 +9,7 @@ public class CreateBatchRequest
     public string FileName { get; set; } = string.Empty;
 
     [Required]
-    public int ClientId { get; set; }
+    public int ProjectId { get; set; }
     [Required]
     public string Name { get; set; } = string.Empty;
 
@@ -42,8 +42,8 @@ public class BatchResponse
 {
     public int Id { get; set; }
     public string FileName { get; set; } = string.Empty;
-    public int ClientId { get; set; }
-    public string ClientName { get; set; } = string.Empty;
+    public int ProjectId { get; set; }
+    public string ProjectName { get; set; } = string.Empty;
     public string? FileUrl { get; set; }
     public string Status { get; set; } = string.Empty;
     public int TotalOrders { get; set; }
@@ -59,8 +59,9 @@ public class BatchResponse
 public class BatchListResponse
 {
     public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
     public string FileName { get; set; } = string.Empty;
-    public string ClientName { get; set; } = string.Empty;
+    public string ProjectName { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public int TotalOrders { get; set; }
     public int ProcessedOrders { get; set; }

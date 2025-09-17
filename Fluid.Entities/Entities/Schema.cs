@@ -31,7 +31,7 @@ public class Schema
 
     // Navigation properties
     public User CreatedByUser { get; set; } = null!;
-    public ICollection<ClientSchema> ClientSchemas { get; set; } = new List<ClientSchema>();
+    public ICollection<ProjectSchema> ProjectSchemas { get; set; } = new List<ProjectSchema>();
     public ICollection<FieldMapping> FieldMappings { get; set; } = new List<FieldMapping>();
     public ICollection<SchemaField> SchemaFields { get; set; } = new List<SchemaField>();
 }

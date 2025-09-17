@@ -32,8 +32,8 @@ namespace SharedKernel.Models
 
         public HashSet<string> Permissions { get; private set; }
         public bool IsServicePrinciple { get; set; } = false;
-        public string? ClientName { get; set; }
-        public int? ClientId { get; set; }
+        public string? ProjectName { get; set; }
+        public int? ProjectId { get; set; }
         public int? AbstractorId { get; set; }
 
         public string? IpAddress { get; set; }
@@ -61,7 +61,7 @@ namespace SharedKernel.Models
             //if (claimValue == 1)
             //{
 
-            //    userDetails = _cacheService.GetClientById(user.FindFirst("azp")?.Value!).Result;
+            //    userDetails = _cacheService.GetProjectById(user.FindFirst("azp")?.Value!).Result;
             //}
             //else
             //{
@@ -80,8 +80,8 @@ namespace SharedKernel.Models
                 //Modules = userDetails.Modules;
                 Permissions = userDetails.Permissions;
                 IsServicePrinciple = isServicePrinciple;
-                ClientName = userDetails?.ClientName;
-                ClientId = userDetails?.ClientId;
+                ProjectName = userDetails?.ProjectName;
+                ProjectId = userDetails?.ProjectId;
                 AbstractorId = userDetails?.AbstractorId;
                 IpAddress = httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
                 UserTypeId = userDetails.UserTypeId;

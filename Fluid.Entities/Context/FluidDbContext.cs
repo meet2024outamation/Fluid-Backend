@@ -13,11 +13,10 @@ public class FluidDbContext : DbContext
         optionsBuilder.UseSnakeCaseNamingConvention();
     }
     // DbSets for all entities
-    public DbSet<User> Users { get; set; }
-    public DbSet<Client> Clients { get; set; }
+    public DbSet<Project> Projects { get; set; }
     public DbSet<Schema> Schemas { get; set; }
     public DbSet<SchemaField> SchemaFields { get; set; }
-    public DbSet<ClientSchema> ClientSchemas { get; set; }
+    public DbSet<ProjectSchema> ProjectSchemas { get; set; }
     public DbSet<Batch> Batches { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderData> OrderData { get; set; }
@@ -25,93 +24,13 @@ public class FluidDbContext : DbContext
     public DbSet<FieldMapping> FieldMappings { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
 
-    // New role-related entities
-    public DbSet<Role> Roles { get; set; }
-    public DbSet<Permission> Permissions { get; set; }
-    public DbSet<RolePermission> RolePermissions { get; set; }
-    public DbSet<UserRole> UserRoles { get; set; }
-
-    // New module-related entities
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // Configure User entity
-        modelBuilder.Entity<User>(entity =>
-        {
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.HasIndex(e => e.AzureAdId).IsUnique();
-        });
-
-        // Configure Role entity
-        modelBuilder.Entity<Role>(entity =>
-        {
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-
-            entity.HasOne(e => e.CreatedBy)
-                  .WithMany(u => u.RoleCreatedBies)
-                  .HasForeignKey(e => e.CreatedById)
-                  .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(e => e.ModifiedBy)
-                  .WithMany(u => u.RoleModifiedBies)
-                  .HasForeignKey(e => e.ModifiedById)
-                  .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        // Configure Permission entity
-        modelBuilder.Entity<Permission>(entity =>
-        {
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.HasIndex(e => e.Code).IsUnique();
-        });
-
-        // Configure RolePermission entity (composite key)
-        modelBuilder.Entity<RolePermission>(entity =>
-        {
-            entity.HasKey(e => new { e.RoleId, e.PermissionId });
-
-            entity.HasOne(e => e.Role)
-                  .WithMany(r => r.RolePermissions)
-                  .HasForeignKey(e => e.RoleId)
-                  .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(e => e.Permission)
-                  .WithMany(p => p.RolePermissions)
-                  .HasForeignKey(e => e.PermissionId)
-                  .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // Configure UserRole entity
-        modelBuilder.Entity<UserRole>(entity =>
-        {
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.HasIndex(e => new { e.UserId, e.RoleId }).IsUnique();
-
-            entity.HasOne(e => e.User)
-                  .WithMany(u => u.UserRoleUsers)
-                  .HasForeignKey(e => e.UserId)
-                  .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(e => e.Role)
-                  .WithMany(r => r.UserRoleUsers)
-                  .HasForeignKey(e => e.RoleId)
-                  .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(e => e.CreatedBy)
-                  .WithMany(u => u.UserRoleCreatedBies)
-                  .HasForeignKey(e => e.CreatedById)
-                  .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(e => e.ModifiedBy)
-                  .WithMany(u => u.UserRoleModifiedBies)
-                  .HasForeignKey(e => e.ModifiedById)
-                  .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        // Configure Client entity
-        modelBuilder.Entity<Client>(entity =>
+        // Configure Project entity
+        modelBuilder.Entity<Project>(entity =>
         {
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.HasIndex(e => e.Code).IsUnique();
@@ -120,7 +39,7 @@ public class FluidDbContext : DbContext
                   .HasMaxLength(50);
 
             entity.HasOne(e => e.CreatedByUser)
-                  .WithMany(u => u.CreatedClients)
+                  .WithMany(u => u.CreatedProjects)
                   .HasForeignKey(e => e.CreatedBy)
                   .OnDelete(DeleteBehavior.Restrict);
         });
@@ -148,19 +67,19 @@ public class FluidDbContext : DbContext
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // Configure ClientSchema entity
-        modelBuilder.Entity<ClientSchema>(entity =>
+        // Configure ProjectSchema entity
+        modelBuilder.Entity<ProjectSchema>(entity =>
         {
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.HasIndex(e => new { e.ClientId, e.SchemaId }).IsUnique();
+            entity.HasIndex(e => new { e.ProjectId, e.SchemaId }).IsUnique();
 
-            entity.HasOne(e => e.Client)
-                  .WithMany(c => c.ClientSchemas)
-                  .HasForeignKey(e => e.ClientId)
+            entity.HasOne(e => e.Project)
+                  .WithMany(c => c.ProjectSchemas)
+                  .HasForeignKey(e => e.ProjectId)
                   .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasOne(e => e.Schema)
-                  .WithMany(s => s.ClientSchemas)
+                  .WithMany(s => s.ProjectSchemas)
                   .HasForeignKey(e => e.SchemaId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
@@ -173,9 +92,9 @@ public class FluidDbContext : DbContext
                   .HasConversion<string>()
                   .HasMaxLength(50);
 
-            entity.HasOne(e => e.Client)
+            entity.HasOne(e => e.Project)
                   .WithMany(c => c.Batches)
-                  .HasForeignKey(e => e.ClientId)
+                  .HasForeignKey(e => e.ProjectId)
                   .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.CreatedByUser)
@@ -193,13 +112,13 @@ public class FluidDbContext : DbContext
                   .HasMaxLength(50);
 
             entity.HasOne(e => e.Batch)
-                  .WithMany(b => b.WorkItems)
+                  .WithMany(b => b.Orders)
                   .HasForeignKey(e => e.BatchId)
                   .OnDelete(DeleteBehavior.Cascade);
 
-            entity.HasOne(e => e.Client)
-                  .WithMany(c => c.WorkItems)
-                  .HasForeignKey(e => e.ClientId)
+            entity.HasOne(e => e.Project)
+                  .WithMany(c => c.Orders)
+                  .HasForeignKey(e => e.ProjectId)
                   .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.AssignedUser)
@@ -245,9 +164,9 @@ public class FluidDbContext : DbContext
         modelBuilder.Entity<FieldMapping>(entity =>
         {
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.HasOne(e => e.Client)
+            entity.HasOne(e => e.Project)
                   .WithMany(c => c.FieldMappings)
-                  .HasForeignKey(e => e.ClientId)
+                  .HasForeignKey(e => e.ProjectId)
                   .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasOne(e => e.Schema)
@@ -278,6 +197,98 @@ public class FluidDbContext : DbContext
                   .WithMany(u => u.ChangedAuditLogs)
                   .HasForeignKey(e => e.ChangedBy)
                   .OnDelete(DeleteBehavior.SetNull);
+        });
+    }
+}
+
+public class FluidIAMDbContext : DbContext
+{
+    public FluidIAMDbContext(DbContextOptions<FluidIAMDbContext> options) : base(options)
+    {
+    }
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.UseSnakeCaseNamingConvention();
+    }
+    public DbSet<User> Users { get; set; }
+    public DbSet<Role> Roles { get; set; }
+    public DbSet<UserRole> UserRoles { get; set; }
+    public DbSet<Tenant> Tenants { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // Configure User entity
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.HasIndex(e => e.AzureAdId).IsUnique();
+        });
+
+        // Configure Role entity
+        modelBuilder.Entity<Role>(entity =>
+        {
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.HasOne(e => e.CreatedBy)
+                  .WithMany(u => u.RoleCreatedBies)
+                  .HasForeignKey(e => e.CreatedById)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.ModifiedBy)
+                  .WithMany(u => u.RoleModifiedBies)
+                  .HasForeignKey(e => e.ModifiedById)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Configure Tenant entity
+        modelBuilder.Entity<Tenant>(entity =>
+        {
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.HasIndex(e => e.Identifier).IsUnique();
+
+            entity.HasOne(e => e.CreatedByUser)
+                  .WithMany(u => u.CreatedTenants)
+                  .HasForeignKey(e => e.CreatedBy)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.ModifiedByUser)
+                  .WithMany(u => u.ModifiedTenants)
+                  .HasForeignKey(e => e.ModifiedBy)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Configure UserRole entity
+        modelBuilder.Entity<UserRole>(entity =>
+        {
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.HasIndex(e => new { e.UserId, e.RoleId, e.TenantId }).IsUnique();
+
+            entity.HasOne(e => e.User)
+                  .WithMany(u => u.UserRoleUsers)
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Role)
+                  .WithMany(r => r.UserRoleUsers)
+                  .HasForeignKey(e => e.RoleId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Tenant)
+                  .WithMany(t => t.UserRoles)
+                  .HasForeignKey(e => e.TenantId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.CreatedBy)
+                  .WithMany(u => u.UserRoleCreatedBies)
+                  .HasForeignKey(e => e.CreatedById)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.ModifiedBy)
+                  .WithMany(u => u.UserRoleModifiedBies)
+                  .HasForeignKey(e => e.ModifiedById)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

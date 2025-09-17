@@ -11,11 +11,13 @@ namespace Fluid.API.Infrastructure.Services;
 public class OrderService : IOrderService
 {
     private readonly FluidDbContext _context;
+    private readonly FluidIAMDbContext _iamContext;
     private readonly ILogger<OrderService> _logger;
 
-    public OrderService(FluidDbContext context, ILogger<OrderService> logger)
+    public OrderService(FluidDbContext context, FluidIAMDbContext iAMDbContext, ILogger<OrderService> logger)
     {
         _context = context;
+        _iamContext = iAMDbContext;
         _logger = logger;
     }
 
@@ -39,7 +41,7 @@ public class OrderService : IOrderService
             }
 
             // Validate user exists
-            var user = await _context.Users
+            var user = await _iamContext.Users
                 .FirstOrDefaultAsync(u => u.Id == request.UserId);
 
             if (user == null)
@@ -136,7 +138,7 @@ public class OrderService : IOrderService
             }
 
             // Validate current user exists
-            var currentUser = await _context.Users
+            var currentUser = await _iamContext.Users
                 .FirstOrDefaultAsync(u => u.Id == currentUserId);
 
             if (currentUser == null)
@@ -279,7 +281,7 @@ public class OrderService : IOrderService
             // Build the base query
             var query = _context.Orders
                 .Include(o => o.Batch)
-                .Include(o => o.Client)
+                .Include(o => o.Project)
                 .Include(o => o.AssignedUser)
                 .Include(o => o.Documents)
                 .Include(o => o.OrderData)
@@ -287,9 +289,9 @@ public class OrderService : IOrderService
                 .AsQueryable();
 
             // Apply filters
-            if (request.ClientId.HasValue)
+            if (request.ProjectId.HasValue)
             {
-                query = query.Where(o => o.ClientId == request.ClientId.Value);
+                query = query.Where(o => o.ProjectId == request.ProjectId.Value);
             }
 
             if (request.BatchId.HasValue)
@@ -345,7 +347,7 @@ public class OrderService : IOrderService
                     o.Documents.Any(d => d.SearchableText != null && d.SearchableText.ToLower().Contains(searchTerm)) ||
                     o.OrderData.Any(od => od.ProcessedValue != null && od.ProcessedValue.ToLower().Contains(searchTerm)) ||
                     o.Batch.FileName.ToLower().Contains(searchTerm) ||
-                    o.Client.Name.ToLower().Contains(searchTerm)
+                    o.Project.Name.ToLower().Contains(searchTerm)
                 );
             }
 
@@ -368,8 +370,8 @@ public class OrderService : IOrderService
                 Id = o.Id,
                 BatchId = o.BatchId,
                 BatchFileName = o.Batch.FileName,
-                ClientId = o.ClientId,
-                ClientName = o.Client.Name,
+                ProjectId = o.ProjectId,
+                ProjectName = o.Project.Name,
                 Status = o.Status.ToString(),
                 Priority = o.Priority,
                 AssignedTo = o.AssignedTo,
@@ -425,7 +427,7 @@ public class OrderService : IOrderService
         {
             "id" => isDescending ? query.OrderByDescending(o => o.Id) : query.OrderBy(o => o.Id),
             "batchid" => isDescending ? query.OrderByDescending(o => o.BatchId) : query.OrderBy(o => o.BatchId),
-            "clientname" => isDescending ? query.OrderByDescending(o => o.Client.Name) : query.OrderBy(o => o.Client.Name),
+            "projectname" => isDescending ? query.OrderByDescending(o => o.Project.Name) : query.OrderBy(o => o.Project.Name),
             "status" => isDescending ? query.OrderByDescending(o => o.Status) : query.OrderBy(o => o.Status),
             "priority" => isDescending ? query.OrderByDescending(o => o.Priority) : query.OrderBy(o => o.Priority),
             "assignedat" => isDescending ? query.OrderByDescending(o => o.AssignedAt) : query.OrderBy(o => o.AssignedAt),

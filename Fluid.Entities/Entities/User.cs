@@ -39,7 +39,7 @@ public class User
     public string Name => $"{FirstName} {LastName}".Trim();
 
     // Navigation properties for existing relationships
-    public ICollection<Client> CreatedClients { get; set; } = new List<Client>();
+    public ICollection<Project> CreatedProjects { get; set; } = new List<Project>();
     public ICollection<Schema> CreatedSchemas { get; set; } = new List<Schema>();
     public ICollection<Batch> CreatedBatches { get; set; } = new List<Batch>();
     public ICollection<Order> AssignedWorkItems { get; set; } = new List<Order>();
@@ -65,4 +65,11 @@ public class User
 
     [InverseProperty("ModifiedBy")]
     public virtual ICollection<UserRole> UserRoleModifiedBies { get; set; } = new List<UserRole>();
+
+    // Tenant-related navigation properties
+    [InverseProperty("CreatedByUser")]
+    public virtual ICollection<Tenant> CreatedTenants { get; set; } = new List<Tenant>();
+
+    [InverseProperty("ModifiedByUser")]
+    public virtual ICollection<Tenant> ModifiedTenants { get; set; } = new List<Tenant>();
 }

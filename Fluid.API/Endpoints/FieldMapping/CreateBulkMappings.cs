@@ -21,10 +21,10 @@ public class CreateBulkMappings : EndpointBaseAsync
         _currentUserService = currentUserService;
     }
 
-    [HttpPost("bulk")]
+    [HttpPost]
     [SwaggerOperation(
         Summary = "Create multiple field mappings",
-        Description = "Creates multiple field mappings for a client and schema in a single transaction. This will replace all existing mappings for the client and schema.",
+        Description = "Creates multiple field mappings for a project and schema in a single transaction. This will replace all existing mappings for the project and schema.",
         OperationId = "SimpleFieldMapping.CreateBulk",
         Tags = new[] { "Simple Field Mappings" })
     ]

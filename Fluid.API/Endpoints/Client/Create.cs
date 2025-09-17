@@ -3,37 +3,37 @@ using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
 using Fluid.API.Infrastructure.Interfaces;
-using Fluid.API.Models.Client;
+using Fluid.API.Models.Project;
 
-namespace Fluid.API.Endpoints.Client;
+namespace Fluid.API.Endpoints.Project;
 
-[Route("api/clients")]
+[Route("api/projects")]
 public class Create : EndpointBaseAsync
-    .WithRequest<CreateClientRequest>
-    .WithActionResult<ClientResponse>
+    .WithRequest<CreateProjectRequest>
+    .WithActionResult<ProjectResponse>
 {
-    private readonly IClientService _clientService;
+    private readonly IProjectService _projectService;
     private readonly ICurrentUserService _currentUserService;
 
-    public Create(IClientService clientService, ICurrentUserService currentUserService)
+    public Create(IProjectService projectService, ICurrentUserService currentUserService)
     {
-        _clientService = clientService;
+        _projectService = projectService;
         _currentUserService = currentUserService;
     }
 
     [HttpPost]
     [SwaggerOperation(
-        Summary = "Create a new client",
-        Description = "Creates a new client in the system",
-        OperationId = "Client.Create",
-        Tags = new[] { "Clients" })
+        Summary = "Create a new project",
+        Description = "Creates a new project in the system",
+        OperationId = "Project.Create",
+        Tags = new[] { "Projects" })
     ]
-    public async override Task<ActionResult<ClientResponse>> HandleAsync(
-        CreateClientRequest request,
+    public async override Task<ActionResult<ProjectResponse>> HandleAsync(
+        CreateProjectRequest request,
         CancellationToken cancellationToken = default)
     {
         var currentUserId = _currentUserService.GetCurrentUserId();
-        var result = await _clientService.CreateAsync(request, currentUserId);
+        var result = await _projectService.CreateAsync(request, currentUserId);
         return result.ToActionResult();
     }
 }

@@ -1,17 +1,16 @@
 ﻿using Azure.Identity;
+using Fluid.API.Infrastructure.Interfaces;
 using Microsoft.Extensions.Options;
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
 using Microsoft.Graph.Models.ODataErrors;
 using SharedKernel.Models;
-using SharedKernel.Utility;
-using Fluid.API.Infrastructure.Interfaces;
 namespace Fluid.API.Infrastructure.Services
 {
     public class GraphService : IGraphService
     {
         private readonly AzureADConfig _azureADConfig;
-        private readonly GraphServiceClient _graphServiceClient;
+        private readonly GraphServiceClient _graphServiceProject;
         public GraphService(IOptions<AzureADConfig> azureADConfig)
         {
             _azureADConfig = azureADConfig.Value;
@@ -22,14 +21,14 @@ namespace Fluid.API.Infrastructure.Services
 
             var requestAdapter = new ClientSecretCredential(
                 _azureADConfig.TenantId, _azureADConfig.MasterClientId, _azureADConfig.MasterClientSecret, options);
-            _graphServiceClient = new GraphServiceClient(requestAdapter);
+            _graphServiceProject = new GraphServiceClient(requestAdapter);
 
         }
         public async Task<SignInCollectionResponse?> GetSignInsLogs(string signInEventType)
         {
             try
             {
-                return await _graphServiceClient.AuditLogs.SignIns.GetAsync((requestConfiguration) =>
+                return await _graphServiceProject.AuditLogs.SignIns.GetAsync((requestConfiguration) =>
                 {
                     //requestConfiguration.QueryParameters.Top = 50;
                     requestConfiguration.QueryParameters.Filter = $"signInEventTypes/any(t:t eq '{signInEventType}')";
@@ -62,7 +61,7 @@ namespace Fluid.API.Infrastructure.Services
                     },
                     SendInvitationMessage = false
                 };
-                return await _graphServiceClient.Invitations.PostAsync(invitation);
+                return await _graphServiceProject.Invitations.PostAsync(invitation);
             }
             catch (ODataError odataError)
             {
@@ -81,7 +80,7 @@ namespace Fluid.API.Infrastructure.Services
         {
             try
             {
-                var servicePrincipal = await _graphServiceClient.ServicePrincipals.GetAsync((requestConfiguration) =>
+                var servicePrincipal = await _graphServiceProject.ServicePrincipals.GetAsync((requestConfiguration) =>
                 {
                     requestConfiguration.QueryParameters.Filter = $"startswith(displayName, '{_azureADConfig.ClientAppName}')";
                 });
@@ -89,7 +88,7 @@ namespace Fluid.API.Infrastructure.Services
                 var resource = servicePrincipal?.Value?.FirstOrDefault();
                 if (resource == null || string.IsNullOrWhiteSpace(resource.Id))
                     return null;
-                var alreadyAssigned = await _graphServiceClient.Users[userId]?.AppRoleAssignments.GetAsync((requestConfiguration) =>
+                var alreadyAssigned = await _graphServiceProject.Users[userId]?.AppRoleAssignments.GetAsync((requestConfiguration) =>
                 {
                     requestConfiguration.QueryParameters.Filter = $"resourceId eq {resource.Id}";
                 });
@@ -103,7 +102,7 @@ namespace Fluid.API.Infrastructure.Services
                     ResourceId = Guid.Parse(resource.Id),//ApplicationId
                     AppRoleId = Guid.Parse("00000000-0000-0000-0000-000000000000"),//RoleId
                 };
-                return await _graphServiceClient.Users[userId].AppRoleAssignments.PostAsync(requestBody);
+                return await _graphServiceProject.Users[userId].AppRoleAssignments.PostAsync(requestBody);
             }
             catch (ODataError odataError)
             {
@@ -135,7 +134,7 @@ namespace Fluid.API.Infrastructure.Services
                     {
                         ExtensionAttribute1 = user.Id.ToString(),
                     };
-                await _graphServiceClient.Users[user.AzureAdId].PatchAsync(updateUser);
+                await _graphServiceProject.Users[user.AzureAdId].PatchAsync(updateUser);
             }
             catch (ODataError odataError)
             {
@@ -155,7 +154,7 @@ namespace Fluid.API.Infrastructure.Services
         {
             try
             {
-                await _graphServiceClient.Users[azureAdId].PatchAsync(new User
+                await _graphServiceProject.Users[azureAdId].PatchAsync(new User
                 {
                     AccountEnabled = accountEnabled,
                 });
@@ -176,7 +175,7 @@ namespace Fluid.API.Infrastructure.Services
         {
             try
             {
-                await _graphServiceClient.Users[azureAdId].DeleteAsync();
+                await _graphServiceProject.Users[azureAdId].DeleteAsync();
             }
             catch (ODataError odataError)
             {
@@ -189,7 +188,7 @@ namespace Fluid.API.Infrastructure.Services
         {
             try
             {
-                var user = await _graphServiceClient.Users.GetAsync((requestConfiguration) =>
+                var user = await _graphServiceProject.Users.GetAsync((requestConfiguration) =>
                 {
                     requestConfiguration.QueryParameters.Filter = $"mail eq '{email}'";
                 });

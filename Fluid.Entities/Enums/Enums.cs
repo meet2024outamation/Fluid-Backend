@@ -7,7 +7,7 @@ public enum UserRole
     Operator
 }
 
-public enum ClientStatus
+public enum ProjectStatus
 {
     Active,
     Inactive

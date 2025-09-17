@@ -9,8 +9,8 @@ public class Batch
     [Key]
     public int Id { get; set; }
 
-    [ForeignKey(nameof(Client))]
-    public int ClientId { get; set; }
+    [ForeignKey(nameof(Project))]
+    public int ProjectId { get; set; }
 
     [Required]
     [StringLength(255)]
@@ -41,7 +41,8 @@ public class Batch
     public int CreatedBy { get; set; }
 
     // Navigation properties
-    public Client Client { get; set; } = null!;
+    public Project Client { get; set; } = null!;
+    public Project Project { get; set; } = null!;
     public User CreatedByUser { get; set; } = null!;
-    public ICollection<Order> WorkItems { get; set; } = new List<Order>();
+    public ICollection<Order> Orders { get; set; } = new List<Order>();
 }

@@ -3,34 +3,34 @@ using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
 using Fluid.API.Infrastructure.Interfaces;
-using Fluid.API.Models.Client;
+using Fluid.API.Models.Project;
 
-namespace Fluid.API.Endpoints.Client;
+namespace Fluid.API.Endpoints.Project;
 
-[Route("api/clients")]
+[Route("api/projects")]
 public class GetById : EndpointBaseAsync
     .WithRequest<int>
-    .WithActionResult<ClientResponse>
+    .WithActionResult<ProjectResponse>
 {
-    private readonly IClientService _clientService;
+    private readonly IProjectService _projectService;
 
-    public GetById(IClientService clientService)
+    public GetById(IProjectService projectService)
     {
-        _clientService = clientService;
+        _projectService = projectService;
     }
 
     [HttpGet("{id:int}")]
     [SwaggerOperation(
-        Summary = "Get client by ID",
-        Description = "Retrieves a specific client by their ID",
-        OperationId = "Client.GetById",
-        Tags = new[] { "Clients" })
+        Summary = "Get project by ID",
+        Description = "Retrieves a specific project by their ID",
+        OperationId = "Project.GetById",
+        Tags = new[] { "Projects" })
     ]
-    public async override Task<ActionResult<ClientResponse>> HandleAsync(
+    public async override Task<ActionResult<ProjectResponse>> HandleAsync(
         int id,
         CancellationToken cancellationToken = default)
     {
-        var result = await _clientService.GetByIdAsync(id);
+        var result = await _projectService.GetByIdAsync(id);
         return result.ToActionResult();
     }
 }

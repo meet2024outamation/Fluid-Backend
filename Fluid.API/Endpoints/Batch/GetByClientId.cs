@@ -8,29 +8,29 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace Fluid.API.Endpoints.Batch;
 
 [Route("api/batches")]
-public class GetByClientId : EndpointBaseAsync
+public class GetByProjectId : EndpointBaseAsync
     .WithRequest<int>
     .WithActionResult<List<BatchListResponse>>
 {
     private readonly IBatchService _batchService;
 
-    public GetByClientId(IBatchService batchService)
+    public GetByProjectId(IBatchService batchService)
     {
         _batchService = batchService;
     }
 
-    [HttpGet("client/{clientId:int}")]
+    [HttpGet("project/{projectId:int}")]
     [SwaggerOperation(
-        Summary = "Get batches by client ID",
-        Description = "Retrieves all batches for a specific client",
-        OperationId = "Batch.GetByClientId",
+        Summary = "Get batches by project ID",
+        Description = "Retrieves all batches for a specific project",
+        OperationId = "Batch.GetByProjectId",
         Tags = new[] { "Batches" })
     ]
     public async override Task<ActionResult<List<BatchListResponse>>> HandleAsync(
-        int clientId,
+        int projectId,
         CancellationToken cancellationToken = default)
     {
-        var result = await _batchService.GetByClientIdAsync(clientId);
+        var result = await _batchService.GetByProjectIdAsync(projectId);
         return result.ToActionResult();
     }
 }

@@ -3,13 +3,13 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Fluid.Entities.Entities;
 
-public class ClientSchema
+public class ProjectSchema
 {
     [Key]
     public int Id { get; set; }
 
-    [ForeignKey(nameof(Client))]
-    public int ClientId { get; set; }
+    [ForeignKey(nameof(Project))]
+    public int ProjectId { get; set; }
 
     [ForeignKey(nameof(Schema))]
     public int SchemaId { get; set; }
@@ -17,6 +17,6 @@ public class ClientSchema
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
-    public Client Client { get; set; } = null!;
+    public Project Project { get; set; } = null!;
     public Schema Schema { get; set; } = null!;
 }

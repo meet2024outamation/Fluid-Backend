@@ -34,7 +34,7 @@ public class UpdateSchemaFieldValue : EndpointBaseAsync
     {
         var currentUserId = _currentUserService.GetCurrentUserId();
         
-        // Get client IP and User Agent for audit logging
+        // Get project IP and User Agent for audit logging
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
         var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
         

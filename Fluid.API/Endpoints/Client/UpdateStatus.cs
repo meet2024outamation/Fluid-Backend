@@ -1,11 +1,11 @@
 using Ardalis.ApiEndpoints;
 using Fluid.API.Infrastructure.Interfaces;
-using Fluid.API.Models.Client;
+using Fluid.API.Models.Project;
 using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
 
-namespace Fluid.API.Endpoints.Client;
+namespace Fluid.API.Endpoints.Project;
 
 public class UpdateStatusRequest
 {
@@ -13,33 +13,33 @@ public class UpdateStatusRequest
     public int Id { get; set; }
 
     [FromBody]
-    public UpdateClientStatusRequest Request { get; set; } = new UpdateClientStatusRequest();
+    public UpdateProjectStatusRequest Request { get; set; } = new UpdateProjectStatusRequest();
 }
 
-[Route("api/clients")]
+[Route("api/projects")]
 public class UpdateStatus : EndpointBaseAsync
     .WithRequest<UpdateStatusRequest>
-    .WithActionResult<ClientResponse>
+    .WithActionResult<ProjectResponse>
 {
-    private readonly IClientService _clientService;
+    private readonly IProjectService _projectService;
 
-    public UpdateStatus(IClientService clientService)
+    public UpdateStatus(IProjectService projectService)
     {
-        _clientService = clientService;
+        _projectService = projectService;
     }
 
     [HttpPatch("{id:int}")]
     [SwaggerOperation(
-        Summary = "Update client status",
-        Description = "Updates the active status of a specific client by their ID",
-        OperationId = "Client.UpdateStatus",
-        Tags = new[] { "Clients" })
+        Summary = "Update project status",
+        Description = "Updates the active status of a specific project by their ID",
+        OperationId = "Project.UpdateStatus",
+        Tags = new[] { "Projects" })
     ]
-    public async override Task<ActionResult<ClientResponse>> HandleAsync(
+    public async override Task<ActionResult<ProjectResponse>> HandleAsync(
         UpdateStatusRequest request,
         CancellationToken cancellationToken = default)
     {
-        var result = await _clientService.UpdateStatusAsync(request.Id, request.Request);
+        var result = await _projectService.UpdateStatusAsync(request.Id, request.Request);
         return result.ToActionResult();
     }
 }

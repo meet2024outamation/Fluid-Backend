@@ -12,6 +12,8 @@ public class UserRole
     public int UserId { get; set; }
 
     public int RoleId { get; set; }
+    public int TenantId { get; set; }
+    public int ProjectId { get; set; }
 
     [StringLength(20)]
     [Unicode(false)]
@@ -38,4 +40,8 @@ public class UserRole
     [ForeignKey("RoleId")]
     [InverseProperty("UserRoleUsers")]
     public virtual Role Role { get; set; } = null!;
+
+    [ForeignKey("TenantId")]
+    [InverseProperty("UserRoles")]
+    public virtual Tenant Tenant { get; set; } = null!;
 }

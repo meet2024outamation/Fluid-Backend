@@ -4,32 +4,32 @@ using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
 using Fluid.API.Infrastructure.Interfaces;
 
-namespace Fluid.API.Endpoints.Client;
+namespace Fluid.API.Endpoints.Project;
 
-[Route("api/clients")]
+[Route("api/projects")]
 public class Delete : EndpointBaseAsync
     .WithRequest<int>
     .WithActionResult<bool>
 {
-    private readonly IClientService _clientService;
+    private readonly IProjectService _projectService;
 
-    public Delete(IClientService clientService)
+    public Delete(IProjectService projectService)
     {
-        _clientService = clientService;
+        _projectService = projectService;
     }
 
     [HttpDelete("{id:int}")]
     [SwaggerOperation(
-        Summary = "Delete client by ID",
-        Description = "Deletes a specific client by their ID. Cannot delete if client has associated batches or field mappings.",
-        OperationId = "Client.Delete",
-        Tags = new[] { "Clients" })
+        Summary = "Delete project by ID",
+        Description = "Deletes a specific project by their ID. Cannot delete if project has associated batches or field mappings.",
+        OperationId = "Project.Delete",
+        Tags = new[] { "Projects" })
     ]
     public async override Task<ActionResult<bool>> HandleAsync(
         [FromRoute] int id,
         CancellationToken cancellationToken = default)
     {
-        var result = await _clientService.DeleteAsync(id);
+        var result = await _projectService.DeleteAsync(id);
         return result.ToActionResult();
     }
 }

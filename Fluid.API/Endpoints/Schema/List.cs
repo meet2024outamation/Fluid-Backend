@@ -22,18 +22,18 @@ public class List : EndpointBaseAsync
     [HttpGet]
     [SwaggerOperation(
         Summary = "Get all schemas",
-        Description = "Retrieves a list of all schemas in the system, optionally filtered by client ID",
+        Description = "Retrieves a list of all schemas in the system, optionally filtered by project ID",
         OperationId = "Schema.List",
         Tags = new[] { "Schemas" })
     ]
     public async override Task<ActionResult<List<SchemaListResponse>>> HandleAsync(
         CancellationToken cancellationToken = default)
     {
-        var clientId = HttpContext.Request.Query.ContainsKey("clientId") 
-            ? int.TryParse(HttpContext.Request.Query["clientId"], out var id) ? (int?)id : null
+        var projectId = HttpContext.Request.Query.ContainsKey("projectId") 
+            ? int.TryParse(HttpContext.Request.Query["projectId"], out var id) ? (int?)id : null
             : null;
 
-        var result = await _schemaService.GetAllAsync(clientId);
+        var result = await _schemaService.GetAllAsync(projectId);
         return result.ToActionResult();
     }
 }

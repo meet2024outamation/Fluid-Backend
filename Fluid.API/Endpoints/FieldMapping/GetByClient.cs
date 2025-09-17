@@ -8,29 +8,29 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace Fluid.API.Endpoints.FieldMapping;
 
 [Route("api/field-mappings")]
-public class GetByClient : EndpointBaseAsync
+public class GetByProject : EndpointBaseAsync
     .WithRequest<int>
     .WithActionResult<List<FieldMappingResponse>>
 {
     private readonly IFieldMappingService _fieldMappingService;
 
-    public GetByClient(IFieldMappingService fieldMappingService)
+    public GetByProject(IFieldMappingService fieldMappingService)
     {
         _fieldMappingService = fieldMappingService;
     }
 
-    [HttpGet("client/{clientId}")]
+    [HttpGet]
     [SwaggerOperation(
-        Summary = "Get field mappings by client ID",
-        Description = "Retrieves all field mappings for a specific client",
-        OperationId = "SimpleFieldMapping.GetByClient",
+        Summary = "Get field mappings by project ID",
+        Description = "Retrieves all field mappings for a specific project",
+        OperationId = "SimpleFieldMapping.GetByProject",
         Tags = new[] { "Simple Field Mappings" })
     ]
     public async override Task<ActionResult<List<FieldMappingResponse>>> HandleAsync(
-        [FromRoute] int clientId,
+        [FromQuery] int projectId,
         CancellationToken cancellationToken = default)
     {
-        var result = await _fieldMappingService.GetByClientIdAsync(clientId);
+        var result = await _fieldMappingService.GetByProjectIdAsync(projectId);
         return result.ToActionResult();
     }
 }

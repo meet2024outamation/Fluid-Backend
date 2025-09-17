@@ -55,7 +55,7 @@ public class UpdateSchemaFieldValueResponse
 
 public class OrderListRequest
 {
-    public int? ClientId { get; set; }
+    public int? ProjectId { get; set; }
     public int? BatchId { get; set; }
     public string? Status { get; set; }
     public int? AssignedTo { get; set; }
@@ -75,8 +75,8 @@ public class OrderListResponse
     public int Id { get; set; }
     public int BatchId { get; set; }
     public string BatchFileName { get; set; } = string.Empty;
-    public int ClientId { get; set; }
-    public string ClientName { get; set; } = string.Empty;
+    public int ProjectId { get; set; }
+    public string ProjectName { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public int Priority { get; set; }
     public int? AssignedTo { get; set; }

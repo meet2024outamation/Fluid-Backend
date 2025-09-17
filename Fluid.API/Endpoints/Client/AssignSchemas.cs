@@ -3,37 +3,37 @@ using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
 using Fluid.API.Infrastructure.Interfaces;
-using Fluid.API.Models.Client;
+using Fluid.API.Models.Project;
 
-namespace Fluid.API.Endpoints.Client;
+namespace Fluid.API.Endpoints.Project;
 
-[Route("api/clients")]
+[Route("api/projects")]
 public class AssignSchemas : EndpointBaseAsync
     .WithRequest<AssignSchemasRequest>
-    .WithActionResult<ClientSchemaAssignmentResponse>
+    .WithActionResult<ProjectSchemaAssignmentResponse>
 {
-    private readonly IClientService _clientService;
+    private readonly IProjectService _projectService;
     private readonly ICurrentUserService _currentUserService;
 
-    public AssignSchemas(IClientService clientService, ICurrentUserService currentUserService)
+    public AssignSchemas(IProjectService projectService, ICurrentUserService currentUserService)
     {
-        _clientService = clientService;
+        _projectService = projectService;
         _currentUserService = currentUserService;
     }
 
     [HttpPost("assign-schemas")]
     [SwaggerOperation(
-        Summary = "Assign schemas to a client",
-        Description = "Assigns a list of schemas to a specific client. This will replace any existing schema assignments for the client.",
-        OperationId = "Client.AssignSchemas",
-        Tags = new[] { "Clients" })
+        Summary = "Assign schemas to a project",
+        Description = "Assigns a list of schemas to a specific project. This will replace any existing schema assignments for the project.",
+        OperationId = "Project.AssignSchemas",
+        Tags = new[] { "Projects" })
     ]
-    public async override Task<ActionResult<ClientSchemaAssignmentResponse>> HandleAsync(
+    public async override Task<ActionResult<ProjectSchemaAssignmentResponse>> HandleAsync(
         AssignSchemasRequest request,
         CancellationToken cancellationToken = default)
     {
         var currentUserId = _currentUserService.GetCurrentUserId();
-        var result = await _clientService.AssignSchemasAsync(request, currentUserId);
+        var result = await _projectService.AssignSchemasAsync(request, currentUserId);
         return result.ToActionResult();
     }
 }

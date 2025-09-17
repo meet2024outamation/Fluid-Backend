@@ -24,7 +24,7 @@ public class ListOrders : EndpointBaseAsync
     [HttpGet]
     [SwaggerOperation(
         Summary = "Get list of orders",
-        Description = "Retrieves a paginated list of orders with filtering, searching, and sorting capabilities. Supports filtering by client, batch, status, assigned user, dates, priority, and validation errors.",
+        Description = "Retrieves a paginated list of orders with filtering, searching, and sorting capabilities. Supports filtering by project, batch, status, assigned user, dates, priority, and validation errors.",
         OperationId = "Order.List",
         Tags = new[] { "Orders" })
     ]

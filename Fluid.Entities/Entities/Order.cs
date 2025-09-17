@@ -12,8 +12,8 @@ public class Order
     [ForeignKey(nameof(Batch))]
     public int BatchId { get; set; }
 
-    [ForeignKey(nameof(Client))]
-    public int ClientId { get; set; }
+    [ForeignKey(nameof(Project))]
+    public int ProjectId { get; set; }
 
     [Required]
     public OrderStatus Status { get; set; } = OrderStatus.Created;
@@ -38,7 +38,7 @@ public class Order
 
     // Navigation properties
     public Batch Batch { get; set; } = null!;
-    public Client Client { get; set; } = null!;
+    public Project Project { get; set; } = null!;
     public User? AssignedUser { get; set; }
     public ICollection<Document> Documents { get; set; } = new List<Document>();
     public ICollection<OrderData> OrderData { get; set; } = new List<OrderData>();

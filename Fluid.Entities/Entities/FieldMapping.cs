@@ -8,8 +8,8 @@ public class FieldMapping
     [Key]
     public int Id { get; set; }
 
-    [ForeignKey(nameof(Client))]
-    public int ClientId { get; set; }
+    [ForeignKey(nameof(Project))]
+    public int ProjectId { get; set; }
 
     [Required]
     [StringLength(255)]
@@ -31,7 +31,8 @@ public class FieldMapping
     public int CreatedBy { get; set; }
 
     // Navigation properties
-    public Client Client { get; set; } = null!;
+    public Project Client { get; set; } = null!;
+    public Project Project { get; set; } = null!;
     public Schema Schema { get; set; } = null!;
     public User CreatedByUser { get; set; } = null!;
     public SchemaField SchemaField { get; set; } = null!;

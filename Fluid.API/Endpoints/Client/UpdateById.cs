@@ -3,9 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
 using Fluid.API.Infrastructure.Interfaces;
-using Fluid.API.Models.Client;
+using Fluid.API.Models.Project;
 
-namespace Fluid.API.Endpoints.Client;
+namespace Fluid.API.Endpoints.Project;
 
 public class UpdateByIdRequest
 {
@@ -13,33 +13,33 @@ public class UpdateByIdRequest
     public int Id { get; set; }
     
     [FromBody]
-    public UpdateClientRequest Request { get; set; } = null!;
+    public UpdateProjectRequest Request { get; set; } = null!;
 }
 
-[Route("api/clients")]
+[Route("api/projects")]
 public class UpdateById : EndpointBaseAsync
     .WithRequest<UpdateByIdRequest>
-    .WithActionResult<ClientResponse>
+    .WithActionResult<ProjectResponse>
 {
-    private readonly IClientService _clientService;
+    private readonly IProjectService _projectService;
 
-    public UpdateById(IClientService clientService)
+    public UpdateById(IProjectService projectService)
     {
-        _clientService = clientService;
+        _projectService = projectService;
     }
 
     [HttpPut("{id:int}")]
     [SwaggerOperation(
-        Summary = "Update client by ID",
-        Description = "Updates a specific client by their ID",
-        OperationId = "Client.UpdateById",
-        Tags = new[] { "Clients" })
+        Summary = "Update project by ID",
+        Description = "Updates a specific project by their ID",
+        OperationId = "Project.UpdateById",
+        Tags = new[] { "Projects" })
     ]
-    public async override Task<ActionResult<ClientResponse>> HandleAsync(
+    public async override Task<ActionResult<ProjectResponse>> HandleAsync(
         UpdateByIdRequest request,
         CancellationToken cancellationToken = default)
     {
-        var result = await _clientService.UpdateAsync(request.Id, request.Request);
+        var result = await _projectService.UpdateAsync(request.Id, request.Request);
         return result.ToActionResult();
     }
 }

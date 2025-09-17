@@ -12,7 +12,7 @@ using System.Collections.Concurrent;
 namespace Fluid.API.Infrastructure.Services
 {
     public class MemCacheService(
-    FluidDbContext appDbContext,
+    FluidIAMDbContext iamDbContext,
     //IHttpContextAccessor contextAccessor,
     IDistributedCache memoryCache,
      IOptions<AppDataOptions> options
@@ -31,7 +31,7 @@ namespace Fluid.API.Infrastructure.Services
             }
 
 
-            var user = await appDbContext.Users
+            var user = await iamDbContext.Users
      .Where(s => s.Email.ToLower() == uniqueId.ToLower())
      .Select(s => new UserAccessDetails
      {
@@ -43,9 +43,9 @@ namespace Fluid.API.Infrastructure.Services
          MiddleName = null, // no field in entity
          UserTypeId = 1, // or map accordingly
          TeamId = null, // depends on schema
-         ClientId = null, // adjust if relation exists
+         ProjectId = null, // adjust if relation exists
          AbstractorId = null,
-         ClientName = null,
+         ProjectName = null,
          IsActive = s.IsActive,
 
          // Collections
@@ -62,9 +62,9 @@ namespace Fluid.API.Infrastructure.Services
          //    .SelectMany(r => r.Role.Modules.Select(m => m.ModuleName))
          //    .ToHashSet(),
 
-         Permissions = s.UserRoleUsers
-             .SelectMany(r => r.Role.RolePermissions.Select(p => p.Permission.Name))
-             .ToHashSet(),
+         //Permissions = s.UserRoleUsers
+         //    .SelectMany(r => r.Role.RolePermissions.Select(p => p.Permission.Name))
+         //    .ToHashSet(),
 
          IsServicePrinciple = false // default since not in entity
      })
@@ -80,7 +80,7 @@ namespace Fluid.API.Infrastructure.Services
 
             //var orderInfo = JObject.Parse(orderInfoJson);
 
-            //user.ClientName = orderInfo["client"]?.ToString();
+            //user.ProjectName = orderInfo["project"]?.ToString();
 
 
             if (user == null) throw new UserNotFoundException();

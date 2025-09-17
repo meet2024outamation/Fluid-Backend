@@ -4,16 +4,15 @@ using Fluid.Entities.Context;
 using Fluid.Entities.Entities;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Result;
-using SharedKernel.Services;
 
 namespace Fluid.API.Infrastructure.Services;
 
-public class FieldMappingService : ServiceBase, IFieldMappingService
+public class FieldMappingService : IFieldMappingService
 {
     private readonly FluidDbContext _context;
     private readonly ILogger<FieldMappingService> _logger;
 
-    public FieldMappingService(FluidDbContext context, ILogger<FieldMappingService> logger, IUser user) : base(context, user)
+    public FieldMappingService(FluidDbContext context, ILogger<FieldMappingService> logger)
     {
         _context = context;
         _logger = logger;
@@ -23,16 +22,16 @@ public class FieldMappingService : ServiceBase, IFieldMappingService
     {
         try
         {
-            // Validate client exists
-            var client = await _context.Clients
-                .FirstOrDefaultAsync(c => c.Id == request.ClientId);
+            // Validate project exists
+            var project = await _context.Projects
+                .FirstOrDefaultAsync(c => c.Id == request.ProjectId);
 
-            if (client == null)
+            if (project == null)
             {
                 var validationError = new ValidationError
                 {
-                    Key = nameof(request.ClientId),
-                    ErrorMessage = "Client not found."
+                    Key = nameof(request.ProjectId),
+                    ErrorMessage = "Project not found."
                 };
                 return Result<FieldMappingResponse>.Invalid(new List<ValidationError> { validationError });
             }
@@ -65,9 +64,9 @@ public class FieldMappingService : ServiceBase, IFieldMappingService
                 return Result<FieldMappingResponse>.Invalid(new List<ValidationError> { validationError });
             }
 
-            // Check if mapping already exists for this client, schema, and input field
+            // Check if mapping already exists for this project, schema, and input field
             var existingMapping = await _context.FieldMappings
-                .FirstOrDefaultAsync(fm => fm.ClientId == request.ClientId &&
+                .FirstOrDefaultAsync(fm => fm.ProjectId == request.ProjectId &&
                                           fm.SchemaId == request.SchemaId &&
                                           fm.InputField.ToLower() == request.InputField.ToLower());
 
@@ -76,7 +75,7 @@ public class FieldMappingService : ServiceBase, IFieldMappingService
                 var validationError = new ValidationError
                 {
                     Key = nameof(request.InputField),
-                    ErrorMessage = $"Field mapping already exists for input field '{request.InputField}' in this client and schema."
+                    ErrorMessage = $"Field mapping already exists for input field '{request.InputField}' in this project and schema."
                 };
                 return Result<FieldMappingResponse>.Invalid(new List<ValidationError> { validationError });
             }
@@ -84,7 +83,7 @@ public class FieldMappingService : ServiceBase, IFieldMappingService
             // Create the field mapping
             var fieldMapping = new FieldMapping
             {
-                ClientId = request.ClientId,
+                ProjectId = request.ProjectId,
                 SchemaId = request.SchemaId,
                 SchemaFieldId = request.SchemaFieldId, // Now directly assign int value
                 InputField = request.InputField.Trim(),
@@ -98,7 +97,7 @@ public class FieldMappingService : ServiceBase, IFieldMappingService
 
             var response = new FieldMappingResponse(
                 fieldMapping.Id,
-                fieldMapping.ClientId,
+                fieldMapping.ProjectId,
                 fieldMapping.SchemaId,
                 fieldMapping.SchemaFieldId, // Return the int value directly
                 fieldMapping.InputField,
@@ -111,7 +110,7 @@ public class FieldMappingService : ServiceBase, IFieldMappingService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating field mapping for client {ClientId}", request.ClientId);
+            _logger.LogError(ex, "Error creating field mapping for project {ProjectId}", request.ProjectId);
             return Result<FieldMappingResponse>.Error("An error occurred while creating the field mapping.");
         }
     }
@@ -123,16 +122,16 @@ public class FieldMappingService : ServiceBase, IFieldMappingService
             var errors = new List<string>();
             var createdMappings = new List<FieldMappingResponse>();
 
-            // Validate client exists
-            var client = await _context.Clients
-                .FirstOrDefaultAsync(c => c.Id == request.ClientId);
+            // Validate project exists
+            var project = await _context.Projects
+                .FirstOrDefaultAsync(c => c.Id == request.ProjectId);
 
-            if (client == null)
+            if (project == null)
             {
                 var validationError = new ValidationError
                 {
-                    Key = nameof(request.ClientId),
-                    ErrorMessage = "Client not found."
+                    Key = nameof(request.ProjectId),
+                    ErrorMessage = "Project not found."
                 };
                 return Result<BulkFieldMappingResponse>.Invalid(new List<ValidationError> { validationError });
             }
@@ -193,17 +192,17 @@ public class FieldMappingService : ServiceBase, IFieldMappingService
 
             try
             {
-                // Remove existing mappings for this client and schema
+                // Remove existing mappings for this project and schema
                 var existingMappings = await _context.FieldMappings
-                    .Where(fm => fm.ClientId == request.ClientId && fm.SchemaId == request.SchemaId)
+                    .Where(fm => fm.ProjectId == request.ProjectId && fm.SchemaId == request.SchemaId)
                     .ToListAsync();
 
                 if (existingMappings.Any())
                 {
                     _context.FieldMappings.RemoveRange(existingMappings);
                     await _context.SaveChangesAsync();
-                    _logger.LogInformation("Removed {Count} existing field mappings for client {ClientId} and schema {SchemaId}",
-                        existingMappings.Count, request.ClientId, request.SchemaId);
+                    _logger.LogInformation("Removed {Count} existing field mappings for project {ProjectId} and schema {SchemaId}",
+                        existingMappings.Count, request.ProjectId, request.SchemaId);
                 }
 
                 // Create new mappings
@@ -213,7 +212,7 @@ public class FieldMappingService : ServiceBase, IFieldMappingService
                     {
                         var fieldMapping = new FieldMapping
                         {
-                            ClientId = request.ClientId,
+                            ProjectId = request.ProjectId,
                             SchemaId = request.SchemaId,
                             SchemaFieldId = mappingItem.SchemaFieldId,
                             InputField = mappingItem.InputField.Trim(),
@@ -227,7 +226,7 @@ public class FieldMappingService : ServiceBase, IFieldMappingService
 
                         var response = new FieldMappingResponse(
                             fieldMapping.Id,
-                            fieldMapping.ClientId,
+                            fieldMapping.ProjectId,
                             fieldMapping.SchemaId,
                             fieldMapping.SchemaFieldId,
                             fieldMapping.InputField,
@@ -249,15 +248,15 @@ public class FieldMappingService : ServiceBase, IFieldMappingService
                 await transaction.CommitAsync();
 
                 var bulkResponse = new BulkFieldMappingResponse(
-                    request.ClientId,
+                    request.ProjectId,
                     request.SchemaId,
                     createdMappings.Count,
                     createdMappings,
                     errors
                 );
 
-                _logger.LogInformation("Bulk field mappings created successfully for client {ClientId}, schema {SchemaId}. Created: {CreatedCount}, Errors: {ErrorCount}",
-                    request.ClientId, request.SchemaId, createdMappings.Count, errors.Count);
+                _logger.LogInformation("Bulk field mappings created successfully for project {ProjectId}, schema {SchemaId}. Created: {CreatedCount}, Errors: {ErrorCount}",
+                    request.ProjectId, request.SchemaId, createdMappings.Count, errors.Count);
 
                 return Result<BulkFieldMappingResponse>.Created(bulkResponse,
                     $"Successfully created {createdMappings.Count} field mappings" +
@@ -271,23 +270,23 @@ public class FieldMappingService : ServiceBase, IFieldMappingService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating bulk field mappings for client {ClientId}", request.ClientId);
+            _logger.LogError(ex, "Error creating bulk field mappings for project {ProjectId}", request.ProjectId);
             return Result<BulkFieldMappingResponse>.Error("An error occurred while creating the field mappings.");
         }
     }
 
-    public async Task<Result<List<FieldMappingResponse>>> GetByClientIdAsync(int clientId)
+    public async Task<Result<List<FieldMappingResponse>>> GetByProjectIdAsync(int projectId)
     {
         try
         {
             var fieldMappings = await _context.FieldMappings
-                .Where(fm => fm.ClientId == clientId)
+                .Where(fm => fm.ProjectId == projectId)
                 .OrderBy(fm => fm.InputField)
                 .ToListAsync();
 
             var responses = fieldMappings.Select(fm => new FieldMappingResponse(
                 fm.Id,
-                fm.ClientId,
+                fm.ProjectId,
                 fm.SchemaId,
                 fm.SchemaFieldId, // Return the int value directly
                 fm.InputField,
@@ -295,12 +294,12 @@ public class FieldMappingService : ServiceBase, IFieldMappingService
                 fm.CreatedAt
             )).ToList();
 
-            _logger.LogInformation("Retrieved {Count} field mappings for client {ClientId}", responses.Count, clientId);
+            _logger.LogInformation("Retrieved {Count} field mappings for project {ProjectId}", responses.Count, projectId);
             return Result<List<FieldMappingResponse>>.Success(responses, $"Retrieved {responses.Count} field mappings successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving field mappings for client {ClientId}", clientId);
+            _logger.LogError(ex, "Error retrieving field mappings for project {ProjectId}", projectId);
             return Result<List<FieldMappingResponse>>.Error("An error occurred while retrieving field mappings.");
         }
     }

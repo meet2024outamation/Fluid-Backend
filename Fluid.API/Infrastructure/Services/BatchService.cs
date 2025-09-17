@@ -45,16 +45,16 @@ public class BatchService : IBatchService
     {
         try
         {
-            // Validate client exists
-            var client = await _context.Clients
-                .FirstOrDefaultAsync(c => c.Id == request.ClientId);
+            // Validate project exists
+            var project = await _context.Projects
+                .FirstOrDefaultAsync(c => c.Id == request.ProjectId);
 
-            if (client == null)
+            if (project == null)
             {
                 var validationError = new ValidationError
                 {
-                    Key = nameof(request.ClientId),
-                    ErrorMessage = "Client not found."
+                    Key = nameof(request.ProjectId),
+                    ErrorMessage = "Project not found."
                 };
                 return Result<BatchResponse>.Invalid(new List<ValidationError> { validationError });
             }
@@ -86,13 +86,13 @@ public class BatchService : IBatchService
             using var transaction = await _context.Database.BeginTransactionAsync();
 
             // Save metadata file and get the URL
-            var metadataFileUrl = await SaveFileAsync(request.MetadataFile, "metadata", client.Code);
+            var metadataFileUrl = await SaveFileAsync(request.MetadataFile, "metadata", project.Code);
 
             // Create batch
             var batch = new Entities.Entities.Batch
             {
                 FileName = request.FileName,
-                ClientId = request.ClientId,
+                ProjectId = request.ProjectId,
                 Name = request.Name,
                 FileUrl = metadataFileUrl,
                 Status = BatchStatus.Received,
@@ -174,20 +174,21 @@ public class BatchService : IBatchService
         try
         {
             var batches = await _context.Batches
-                .Include(b => b.Client)
+                .Include(b => b.Project)
                 .Include(b => b.CreatedByUser)
                 .ToListAsync();
 
             var batchListResponses = batches.Select(b => new BatchListResponse
             {
                 Id = b.Id,
+                Name = b.Name,
                 FileName = b.FileName,
-                ClientName = b.Client.Name,
+                ProjectName = b.Project.Name,
                 Status = b.Status.ToString(),
                 TotalOrders = b.TotalOrders,
                 ProcessedOrders = b.ProcessedOrders,
-                ValidOrders = b.WorkItems.Count(w => w.Status != OrderStatus.ValidationError),
-                InvalidOrders = b.WorkItems.Count(w => w.Status == OrderStatus.ValidationError),
+                ValidOrders = b.Orders.Count(w => w.Status != OrderStatus.ValidationError),
+                InvalidOrders = b.Orders.Count(w => w.Status == OrderStatus.ValidationError),
                 CreatedAt = b.CreatedAt,
                 CreatedByName = b.CreatedByUser.Name
             })
@@ -204,38 +205,38 @@ public class BatchService : IBatchService
         }
     }
 
-    public async Task<Result<List<BatchListResponse>>> GetByClientIdAsync(int clientId)
+    public async Task<Result<List<BatchListResponse>>> GetByProjectIdAsync(int projectId)
     {
         try
         {
             var batches = await _context.Batches
-                .Include(b => b.Client)
+                .Include(b => b.Project)
                 .Include(b => b.CreatedByUser)
-                .Where(b => b.ClientId == clientId)
+                .Where(b => b.ProjectId == projectId)
                 .ToListAsync();
 
             var batchListResponses = batches.Select(b => new BatchListResponse
             {
                 Id = b.Id,
                 FileName = b.FileName,
-                ClientName = b.Client.Name,
+                ProjectName = b.Project.Name,
                 Status = b.Status.ToString(),
                 TotalOrders = b.TotalOrders,
                 ProcessedOrders = b.ProcessedOrders,
-                ValidOrders = b.WorkItems.Count(w => w.Status != OrderStatus.ValidationError),
-                InvalidOrders = b.WorkItems.Count(w => w.Status == OrderStatus.ValidationError),
+                ValidOrders = b.Orders.Count(w => w.Status != OrderStatus.ValidationError),
+                InvalidOrders = b.Orders.Count(w => w.Status == OrderStatus.ValidationError),
                 CreatedAt = b.CreatedAt,
                 CreatedByName = b.CreatedByUser.Name
             })
             .OrderByDescending(b => b.CreatedAt)
             .ToList();
 
-            _logger.LogInformation("Retrieved {Count} batches for client {ClientId}", batchListResponses.Count, clientId);
+            _logger.LogInformation("Retrieved {Count} batches for project {ProjectId}", batchListResponses.Count, projectId);
             return Result<List<BatchListResponse>>.Success(batchListResponses, $"Retrieved {batchListResponses.Count} batches successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving batches for client {ClientId}", clientId);
+            _logger.LogError(ex, "Error retrieving batches for project {ProjectId}", projectId);
             return Result<List<BatchListResponse>>.Error("An error occurred while retrieving batches.");
         }
     }
@@ -245,7 +246,7 @@ public class BatchService : IBatchService
         try
         {
             var batch = await _context.Batches
-                .Include(b => b.Client)
+                .Include(b => b.Project)
                 .Include(b => b.CreatedByUser)
                 .FirstOrDefaultAsync(b => b.Id == id);
 
@@ -410,7 +411,7 @@ public class BatchService : IBatchService
         try
         {
             var batch = await _context.Batches
-                .Include(b => b.WorkItems)
+                .Include(b => b.Orders)
                 .FirstOrDefaultAsync(b => b.Id == id);
 
             if (batch == null)
@@ -420,7 +421,7 @@ public class BatchService : IBatchService
             }
 
             // Remove associated orders first
-            _context.Orders.RemoveRange(batch.WorkItems);
+            _context.Orders.RemoveRange(batch.Orders);
 
             // Remove the batch
             _context.Batches.Remove(batch);
@@ -440,9 +441,9 @@ public class BatchService : IBatchService
     private async Task<Entities.Entities.Batch?> GetBatchWithDetails(int batchId)
     {
         return await _context.Batches
-            .Include(b => b.Client)
+            .Include(b => b.Project)
             .Include(b => b.CreatedByUser)
-            .Include(b => b.WorkItems)
+            .Include(b => b.Orders)
             .FirstOrDefaultAsync(b => b.Id == batchId);
     }
 
@@ -452,23 +453,23 @@ public class BatchService : IBatchService
 
         try
         {
-            // Get client information for file storage
-            var client = await _context.Clients.FirstOrDefaultAsync(c => c.Id == batch.ClientId);
-            if (client == null)
+            // Get project information for file storage
+            var project = await _context.Projects.FirstOrDefaultAsync(c => c.Id == batch.ProjectId);
+            if (project == null)
             {
-                return ProcessingResult.Error("Client not found for this batch.");
+                return ProcessingResult.Error("Project not found for this batch.");
             }
 
-            // Get client's field mappings and schema fields
+            // Get project's field mappings and schema fields
             var fieldMappings = await _context.FieldMappings
                 .Include(fm => fm.Schema)
                 .ThenInclude(s => s.SchemaFields)
-                .Where(fm => fm.ClientId == batch.ClientId)
+                .Where(fm => fm.ProjectId == batch.ProjectId)
                 .ToListAsync();
 
             if (!fieldMappings.Any())
             {
-                return ProcessingResult.Error("No field mappings found for this client. Please configure field mappings first.");
+                return ProcessingResult.Error("No field mappings found for this project. Please configure field mappings first.");
             }
 
             // Create a dictionary for quick lookup of schema field IDs by input field name
@@ -518,7 +519,7 @@ public class BatchService : IBatchService
                 var order = new Order
                 {
                     BatchId = batch.Id,
-                    ClientId = batch.ClientId,
+                    ProjectId = batch.ProjectId,
                     Status = OrderStatus.Created,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -552,8 +553,8 @@ public class BatchService : IBatchService
                         }
                         else
                         {
-                            _logger.LogWarning("Input field '{InputField}' has no mapping to schema field for client {ClientId}",
-                                field.Key, batch.ClientId);
+                            _logger.LogWarning("Input field '{InputField}' has no mapping to schema field for project {ProjectId}",
+                                field.Key, batch.ProjectId);
                         }
                     }
                 }
@@ -572,7 +573,7 @@ public class BatchService : IBatchService
                             if (documentLookup.TryGetValue(filename, out var documentFile))
                             {
                                 // Save the document file
-                                var documentUrl = await SaveFileAsync(documentFile, "documents", client.Code);
+                                var documentUrl = await SaveFileAsync(documentFile, "documents", project.Code);
 
                                 // Create document record with actual file
                                 var documentRecord = new Document
@@ -589,7 +590,7 @@ public class BatchService : IBatchService
 
                                 // Process document for AI extraction after saving
                                 await _context.SaveChangesAsync();
-                                await ProcessDocumentForExtractionAsync(documentRecord, documentFile);
+                                //await ProcessDocumentForExtractionAsync(documentRecord, documentFile);
                             }
                             else
                             {
@@ -767,7 +768,7 @@ public class BatchService : IBatchService
             .Where(w => w.BatchId == batchId)
             .ToListAsync();
 
-        // Get the client ID for this batch to determine required fields
+        // Get the project ID for this batch to determine required fields
         var batch = await _context.Batches
             .FirstOrDefaultAsync(b => b.Id == batchId);
 
@@ -781,46 +782,46 @@ public class BatchService : IBatchService
             return validationResults;
         }
 
-        // Get schema fields marked as required for this client
+        // Get schema fields marked as required for this project
         var requiredSchemaFields = await _context.SchemaFields
             .Include(sf => sf.Schema)
-            .ThenInclude(s => s.ClientSchemas)
-            .Where(sf => sf.Schema.ClientSchemas.Any(cs => cs.ClientId == batch.ClientId) && sf.IsRequired)
+            .ThenInclude(s => s.ProjectSchemas)
+            .Where(sf => sf.Schema.ProjectSchemas.Any(cs => cs.ProjectId == batch.ProjectId) && sf.IsRequired)
             .Select(sf => sf.Id)
             .ToListAsync();
 
         // Validation 1: Check for missing required fields
-        var ordersWithMissingFields = new List<int>();
-        foreach (var order in orders)
-        {
-            var orderSchemaFieldIds = order.OrderData.Select(od => od.SchemaFieldId).ToList();
+        //var ordersWithMissingFields = new List<int>();
+        //foreach (var order in orders)
+        //{
+        //    var orderSchemaFieldIds = order.OrderData.Select(od => od.SchemaFieldId).ToList();
 
-            // Check if any required fields are missing
-            var missingRequiredFields = requiredSchemaFields.Except(orderSchemaFieldIds).ToList();
+        //    // Check if any required fields are missing
+        //    var missingRequiredFields = requiredSchemaFields.Except(orderSchemaFieldIds).ToList();
 
-            if (missingRequiredFields.Any())
-            {
-                ordersWithMissingFields.Add(order.Id);
-                order.Status = OrderStatus.ValidationError;
+        //    if (missingRequiredFields.Any())
+        //    {
+        //        ordersWithMissingFields.Add(order.Id);
+        //        order.Status = OrderStatus.ValidationError;
 
-                // Get the names of missing fields for error message
-                var missingFieldNames = await _context.SchemaFields
-                    .Where(sf => missingRequiredFields.Contains(sf.Id))
-                    .Select(sf => sf.FieldName)
-                    .ToListAsync();
+        //        // Get the names of missing fields for error message
+        //        var missingFieldNames = await _context.SchemaFields
+        //            .Where(sf => missingRequiredFields.Contains(sf.Id))
+        //            .Select(sf => sf.FieldName)
+        //            .ToListAsync();
 
-                order.ValidationErrors = JsonSerializer.Serialize(new[] { $"Missing required fields: {string.Join(", ", missingFieldNames)}" });
-            }
-        }
+        //        order.ValidationErrors = JsonSerializer.Serialize(new[] { $"Missing required fields: {string.Join(", ", missingFieldNames)}" });
+        //    }
+        //}
 
-        if (ordersWithMissingFields.Any())
-        {
-            validationResults.Add(new BatchValidationResult(
-                "Error",
-                $"Missing required fields in {ordersWithMissingFields.Count} orders",
-                ordersWithMissingFields.Count
-            ));
-        }
+        //if (ordersWithMissingFields.Any())
+        //{
+        //    validationResults.Add(new BatchValidationResult(
+        //        "Error",
+        //        $"Missing required fields in {ordersWithMissingFields.Count} orders",
+        //        ordersWithMissingFields.Count
+        //    ));
+        //}
 
         // Validation 2: Check for missing PDF documents
         var ordersWithMissingPDFs = new List<int>();
@@ -900,15 +901,15 @@ public class BatchService : IBatchService
 
     private static BatchResponse MapToBatchResponse(Entities.Entities.Batch batch, List<BatchValidationResult> validationResults)
     {
-        var validOrders = batch.WorkItems.Count(w => w.Status != OrderStatus.ValidationError);
-        var invalidOrders = batch.WorkItems.Count(w => w.Status == OrderStatus.ValidationError);
+        var validOrders = batch.Orders.Count(w => w.Status != OrderStatus.ValidationError);
+        var invalidOrders = batch.Orders.Count(w => w.Status == OrderStatus.ValidationError);
 
         return new BatchResponse
         {
             Id = batch.Id,
             FileName = batch.FileName,
-            ClientId = batch.ClientId,
-            ClientName = batch.Client.Name,
+            ProjectId = batch.ProjectId,
+            ProjectName = batch.Project.Name,
             FileUrl = batch.FileUrl,
             Status = batch.Status.ToString(),
             TotalOrders = batch.TotalOrders,
@@ -922,20 +923,20 @@ public class BatchService : IBatchService
         };
     }
 
-    private async Task<string> SaveFileAsync(IFormFile file, string fileType, string clientCode)
+    private async Task<string> SaveFileAsync(IFormFile file, string fileType, string projectCode)
     {
         try
         {
             // Get the uploads directory from configuration or use default
             var uploadsPath = _configuration["FileStorage:UploadsPath"] ?? "uploads";
-            var clientPath = Path.Combine(uploadsPath, clientCode, fileType);
+            var projectPath = Path.Combine(uploadsPath, projectCode, fileType);
 
             // Ensure directory exists
-            Directory.CreateDirectory(clientPath);
+            Directory.CreateDirectory(projectPath);
 
             // Generate unique filename
             var fileName = $"{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
-            var filePath = Path.Combine(clientPath, fileName);
+            var filePath = Path.Combine(projectPath, fileName);
 
             // Save the file
             using (var stream = new FileStream(filePath, FileMode.Create))
@@ -944,11 +945,11 @@ public class BatchService : IBatchService
             }
 
             // Return relative URL path
-            return Path.Combine(clientCode, fileType, fileName).Replace('\\', '/');
+            return Path.Combine(projectCode, fileType, fileName).Replace('\\', '/');
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error saving file {FileName} for client {ClientCode}", file.FileName, clientCode);
+            _logger.LogError(ex, "Error saving file {FileName} for project {ProjectCode}", file.FileName, projectCode);
             throw;
         }
     }
@@ -1049,7 +1050,7 @@ public class BatchService : IBatchService
             {
                 httpClient.DefaultRequestHeaders.Add("X-API-Key", apiKey);
                 // Or use Authorization header if needed
-                // httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+                // httpProject.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
             }
 
             httpClient.DefaultRequestHeaders.Add("User-Agent", "Xtract-DocumentProcessor/1.0");
@@ -1153,7 +1154,7 @@ public class BatchService : IBatchService
     {
         try
         {
-            // Get the order to find client ID for field mapping
+            // Get the order to find project ID for field mapping
             var order = await _context.Orders
                 .FirstOrDefaultAsync(w => w.Id == orderId);
 
@@ -1163,9 +1164,9 @@ public class BatchService : IBatchService
                 return;
             }
 
-            // Get field mappings for this client
+            // Get field mappings for this project
             var fieldMappings = await _context.FieldMappings
-                .Where(fm => fm.ClientId == order.ClientId)
+                .Where(fm => fm.ProjectId == order.ProjectId)
                 .ToListAsync();
 
             var fieldMappingLookup = new Dictionary<string, int>();
@@ -1212,8 +1213,8 @@ public class BatchService : IBatchService
                 }
                 else
                 {
-                    _logger.LogDebug("Extracted field '{FieldKey}' has no mapping to schema field for client {ClientId}",
-                        extractedField.Key, order.ClientId);
+                    _logger.LogDebug("Extracted field '{FieldKey}' has no mapping to schema field for project {ProjectId}",
+                        extractedField.Key, order.ProjectId);
                 }
             }
 

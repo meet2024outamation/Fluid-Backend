@@ -1,44 +1,44 @@
 using Fluid.API.Infrastructure.Interfaces;
-using Fluid.API.Models.Client;
+using Fluid.API.Models.Project;
 using Fluid.Entities.Context;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Result;
 
 namespace Fluid.API.Infrastructure.Services;
 
-public class ClientService : IClientService
+public class ProjectService : IProjectService
 {
     private readonly FluidDbContext _context;
-    private readonly ILogger<ClientService> _logger;
+    private readonly ILogger<ProjectService> _logger;
 
-    public ClientService(FluidDbContext context, ILogger<ClientService> logger)
+    public ProjectService(FluidDbContext context, ILogger<ProjectService> logger)
     {
         _context = context;
         _logger = logger;
     }
 
-    public async Task<Result<ClientResponse>> CreateAsync(CreateClientRequest request, int currentUserId)
+    public async Task<Result<ProjectResponse>> CreateAsync(CreateProjectRequest request, int currentUserId)
     {
         try
         {
-            // Check if client code already exists
-            var existingClient = await _context.Clients
+            // Check if project code already exists
+            var existingProject = await _context.Projects
                 .FirstOrDefaultAsync(c => c.Code == request.Code);
 
-            if (existingClient != null)
+            if (existingProject != null)
             {
-                _logger.LogWarning("Attempted to create client with existing code: {Code}", request.Code);
+                _logger.LogWarning("Attempted to create project with existing code: {Code}", request.Code);
 
                 var validationError = new ValidationError
                 {
                     Key = nameof(request.Code),
-                    ErrorMessage = $"Client with code '{request.Code}' already exists."
+                    ErrorMessage = $"Project with code '{request.Code}' already exists."
                 };
 
-                return Result<ClientResponse>.Invalid(new List<ValidationError> { validationError });
+                return Result<ProjectResponse>.Invalid(new List<ValidationError> { validationError });
             }
 
-            var client = new Fluid.Entities.Entities.Client
+            var project = new Fluid.Entities.Entities.Project
             {
                 Name = request.Name,
                 Code = request.Code,
@@ -48,44 +48,44 @@ public class ClientService : IClientService
                 UpdatedAt = DateTime.UtcNow
             };
 
-            _context.Clients.Add(client);
+            _context.Projects.Add(project);
             await _context.SaveChangesAsync();
 
-            // Load the created client with user information
-            var createdClient = await _context.Clients
+            // Load the created project with user information
+            var createdProject = await _context.Projects
                 .Include(c => c.CreatedByUser)
-                .FirstAsync(c => c.Id == client.Id);
+                .FirstAsync(c => c.Id == project.Id);
 
-            var response = new ClientResponse
+            var response = new ProjectResponse
             {
-                Id = createdClient.Id,
-                Name = createdClient.Name,
-                Code = createdClient.Code,
-                IsActive = createdClient.IsActive,
-                CreatedAt = createdClient.CreatedAt,
-                UpdatedAt = createdClient.UpdatedAt,
-                CreatedBy = createdClient.CreatedBy,
-                CreatedByName = createdClient.CreatedByUser.Name
+                Id = createdProject.Id,
+                Name = createdProject.Name,
+                Code = createdProject.Code,
+                IsActive = createdProject.IsActive,
+                CreatedAt = createdProject.CreatedAt,
+                UpdatedAt = createdProject.UpdatedAt,
+                CreatedBy = createdProject.CreatedBy,
+                CreatedByName = createdProject.CreatedByUser.Name
             };
 
-            _logger.LogInformation("Client created successfully with ID: {ClientId}", createdClient.Id);
-            return Result<ClientResponse>.Created(response, "Client created successfully");
+            _logger.LogInformation("Project created successfully with ID: {ProjectId}", createdProject.Id);
+            return Result<ProjectResponse>.Created(response, "Project created successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating client with code: {Code}", request.Code);
-            return Result<ClientResponse>.Error("An error occurred while creating the client.");
+            _logger.LogError(ex, "Error creating project with code: {Code}", request.Code);
+            return Result<ProjectResponse>.Error("An error occurred while creating the project.");
         }
     }
 
-    public async Task<Result<List<ClientListResponse>>> GetAllAsync()
+    public async Task<Result<List<ProjectListResponse>>> GetAllAsync()
     {
         try
         {
-            var clients = await _context.Clients
+            var projects = await _context.Projects
                 .Include(c => c.CreatedByUser)
                 .OrderBy(c => c.Name)
-                .Select(c => new ClientListResponse
+                .Select(c => new ProjectListResponse
                 {
                     Id = c.Id,
                     Name = c.Name,
@@ -95,155 +95,155 @@ public class ClientService : IClientService
                 })
                 .ToListAsync();
 
-            _logger.LogInformation("Retrieved {Count} clients", clients.Count);
-            return Result<List<ClientListResponse>>.Success(clients, $"Retrieved {clients.Count} clients successfully");
+            _logger.LogInformation("Retrieved {Count} projects", projects.Count);
+            return Result<List<ProjectListResponse>>.Success(projects, $"Retrieved {projects.Count} projects successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving clients");
-            return Result<List<ClientListResponse>>.Error("An error occurred while retrieving clients.");
+            _logger.LogError(ex, "Error retrieving projects");
+            return Result<List<ProjectListResponse>>.Error("An error occurred while retrieving projects.");
         }
     }
 
-    public async Task<Result<ClientResponse>> GetByIdAsync(int id)
+    public async Task<Result<ProjectResponse>> GetByIdAsync(int id)
     {
         try
         {
-            var client = await _context.Clients
+            var project = await _context.Projects
                 .Include(c => c.CreatedByUser)
                 .FirstOrDefaultAsync(c => c.Id == id);
 
-            if (client == null)
+            if (project == null)
             {
-                _logger.LogWarning("Client with ID {ClientId} not found", id);
-                return Result<ClientResponse>.NotFound();
+                _logger.LogWarning("Project with ID {ProjectId} not found", id);
+                return Result<ProjectResponse>.NotFound();
             }
 
-            var response = new ClientResponse
+            var response = new ProjectResponse
             {
-                Id = client.Id,
-                Name = client.Name,
-                Code = client.Code,
-                IsActive = client.IsActive,
-                CreatedAt = client.CreatedAt,
-                UpdatedAt = client.UpdatedAt,
-                CreatedBy = client.CreatedBy,
-                CreatedByName = client.CreatedByUser.Name
+                Id = project.Id,
+                Name = project.Name,
+                Code = project.Code,
+                IsActive = project.IsActive,
+                CreatedAt = project.CreatedAt,
+                UpdatedAt = project.UpdatedAt,
+                CreatedBy = project.CreatedBy,
+                CreatedByName = project.CreatedByUser.Name
             };
 
-            _logger.LogInformation("Retrieved client with ID: {ClientId}", id);
-            return Result<ClientResponse>.Success(response, "Client retrieved successfully");
+            _logger.LogInformation("Retrieved project with ID: {ProjectId}", id);
+            return Result<ProjectResponse>.Success(response, "Project retrieved successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving client with ID: {ClientId}", id);
-            return Result<ClientResponse>.Error("An error occurred while retrieving the client.");
+            _logger.LogError(ex, "Error retrieving project with ID: {ProjectId}", id);
+            return Result<ProjectResponse>.Error("An error occurred while retrieving the project.");
         }
     }
 
-    public async Task<Result<ClientResponse>> UpdateAsync(int id, UpdateClientRequest request)
+    public async Task<Result<ProjectResponse>> UpdateAsync(int id, UpdateProjectRequest request)
     {
         try
         {
-            var client = await _context.Clients
+            var project = await _context.Projects
                 .Include(c => c.CreatedByUser)
                 .FirstOrDefaultAsync(c => c.Id == id);
 
-            if (client == null)
+            if (project == null)
             {
-                _logger.LogWarning("Client with ID {ClientId} not found for update", id);
-                return Result<ClientResponse>.NotFound();
+                _logger.LogWarning("Project with ID {ProjectId} not found for update", id);
+                return Result<ProjectResponse>.NotFound();
             }
 
-            // Check if the new code conflicts with another client
-            if (request.Code != client.Code)
+            // Check if the new code conflicts with another project
+            if (request.Code != project.Code)
             {
-                var existingClient = await _context.Clients
+                var existingProject = await _context.Projects
                     .FirstOrDefaultAsync(c => c.Code == request.Code && c.Id != id);
 
-                if (existingClient != null)
+                if (existingProject != null)
                 {
-                    _logger.LogWarning("Attempted to update client {ClientId} with existing code: {Code}", id, request.Code);
+                    _logger.LogWarning("Attempted to update project {ProjectId} with existing code: {Code}", id, request.Code);
 
                     var validationError = new ValidationError
                     {
                         Key = nameof(request.Code),
-                        ErrorMessage = $"Client with code '{request.Code}' already exists."
+                        ErrorMessage = $"Project with code '{request.Code}' already exists."
                     };
 
-                    return Result<ClientResponse>.Invalid(new List<ValidationError> { validationError });
+                    return Result<ProjectResponse>.Invalid(new List<ValidationError> { validationError });
                 }
             }
 
-            // Update the client properties
-            client.Name = request.Name;
-            client.Code = request.Code;
-            client.IsActive = request.IsActive;
-            client.UpdatedAt = DateTime.UtcNow;
+            // Update the project properties
+            project.Name = request.Name;
+            project.Code = request.Code;
+            project.IsActive = request.IsActive;
+            project.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
-            var response = new ClientResponse
+            var response = new ProjectResponse
             {
-                Id = client.Id,
-                Name = client.Name,
-                Code = client.Code,
-                IsActive = client.IsActive,
-                CreatedAt = client.CreatedAt,
-                UpdatedAt = client.UpdatedAt,
-                CreatedBy = client.CreatedBy,
-                CreatedByName = client.CreatedByUser.Name
+                Id = project.Id,
+                Name = project.Name,
+                Code = project.Code,
+                IsActive = project.IsActive,
+                CreatedAt = project.CreatedAt,
+                UpdatedAt = project.UpdatedAt,
+                CreatedBy = project.CreatedBy,
+                CreatedByName = project.CreatedByUser.Name
             };
 
-            _logger.LogInformation("Client updated successfully with ID: {ClientId}", id);
-            return Result<ClientResponse>.Success(response, "Client updated successfully");
+            _logger.LogInformation("Project updated successfully with ID: {ProjectId}", id);
+            return Result<ProjectResponse>.Success(response, "Project updated successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating client with ID: {ClientId}", id);
-            return Result<ClientResponse>.Error("An error occurred while updating the client.");
+            _logger.LogError(ex, "Error updating project with ID: {ProjectId}", id);
+            return Result<ProjectResponse>.Error("An error occurred while updating the project.");
         }
     }
 
-    public async Task<Result<ClientResponse>> UpdateStatusAsync(int id, UpdateClientStatusRequest request)
+    public async Task<Result<ProjectResponse>> UpdateStatusAsync(int id, UpdateProjectStatusRequest request)
     {
         try
         {
-            var client = await _context.Clients
+            var project = await _context.Projects
                 .Include(c => c.CreatedByUser)
                 .FirstOrDefaultAsync(c => c.Id == id);
 
-            if (client == null)
+            if (project == null)
             {
-                _logger.LogWarning("Client with ID {ClientId} not found for status update", id);
-                return Result<ClientResponse>.NotFound();
+                _logger.LogWarning("Project with ID {ProjectId} not found for status update", id);
+                return Result<ProjectResponse>.NotFound();
             }
 
             // Update only the status
-            client.IsActive = request.IsActive;
-            client.UpdatedAt = DateTime.UtcNow;
+            project.IsActive = request.IsActive;
+            project.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
-            var response = new ClientResponse
+            var response = new ProjectResponse
             {
-                Id = client.Id,
-                Name = client.Name,
-                Code = client.Code,
-                IsActive = client.IsActive,
-                CreatedAt = client.CreatedAt,
-                UpdatedAt = client.UpdatedAt,
-                CreatedBy = client.CreatedBy,
-                CreatedByName = client.CreatedByUser.Name
+                Id = project.Id,
+                Name = project.Name,
+                Code = project.Code,
+                IsActive = project.IsActive,
+                CreatedAt = project.CreatedAt,
+                UpdatedAt = project.UpdatedAt,
+                CreatedBy = project.CreatedBy,
+                CreatedByName = project.CreatedByUser.Name
             };
 
-            _logger.LogInformation("Client status updated successfully for ID: {ClientId}, IsActive: {IsActive}", id, request.IsActive);
-            return Result<ClientResponse>.Success(response, "Client status updated successfully");
+            _logger.LogInformation("Project status updated successfully for ID: {ProjectId}, IsActive: {IsActive}", id, request.IsActive);
+            return Result<ProjectResponse>.Success(response, "Project status updated successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating client status for ID: {ClientId}", id);
-            return Result<ClientResponse>.Error("An error occurred while updating the client status.");
+            _logger.LogError(ex, "Error updating project status for ID: {ProjectId}", id);
+            return Result<ProjectResponse>.Error("An error occurred while updating the project status.");
         }
     }
 
@@ -251,69 +251,69 @@ public class ClientService : IClientService
     {
         try
         {
-            var client = await _context.Clients
+            var project = await _context.Projects
                 .Include(c => c.Batches)
                 .Include(c => c.FieldMappings)
                 .FirstOrDefaultAsync(c => c.Id == id);
 
-            if (client == null)
+            if (project == null)
             {
-                _logger.LogWarning("Client with ID {ClientId} not found for deletion", id);
+                _logger.LogWarning("Project with ID {ProjectId} not found for deletion", id);
                 return Result<bool>.NotFound();
             }
 
-            // Check if client has associated batches
-            if (client.Batches.Any())
+            // Check if project has associated batches
+            if (project.Batches.Any())
             {
                 var validationError = new ValidationError
                 {
-                    Key = "Client",
-                    ErrorMessage = "Cannot delete client as it has associated batches. Please remove all batches first."
+                    Key = "Project",
+                    ErrorMessage = "Cannot delete project as it has associated batches. Please remove all batches first."
                 };
                 return Result<bool>.Invalid(new List<ValidationError> { validationError });
             }
 
-            // Check if client has associated field mappings
-            if (client.FieldMappings.Any())
+            // Check if project has associated field mappings
+            if (project.FieldMappings.Any())
             {
                 var validationError = new ValidationError
                 {
-                    Key = "Client",
-                    ErrorMessage = "Cannot delete client as it has associated field mappings. Please remove all field mappings first."
+                    Key = "Project",
+                    ErrorMessage = "Cannot delete project as it has associated field mappings. Please remove all field mappings first."
                 };
                 return Result<bool>.Invalid(new List<ValidationError> { validationError });
             }
 
-            // Remove the client
-            _context.Clients.Remove(client);
+            // Remove the project
+            _context.Projects.Remove(project);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Client deleted successfully with ID: {ClientId}", id);
-            return Result<bool>.Success(true, "Client deleted successfully");
+            _logger.LogInformation("Project deleted successfully with ID: {ProjectId}", id);
+            return Result<bool>.Success(true, "Project deleted successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting client with ID: {ClientId}", id);
-            return Result<bool>.Error("An error occurred while deleting the client.");
+            _logger.LogError(ex, "Error deleting project with ID: {ProjectId}", id);
+            return Result<bool>.Error("An error occurred while deleting the project.");
         }
     }
 
-    public async Task<Result<ClientSchemaAssignmentResponse>> AssignSchemasAsync(AssignSchemasRequest request, int currentUserId)
+    public async Task<Result<ProjectSchemaAssignmentResponse>> AssignSchemasAsync(AssignSchemasRequest request, int currentUserId)
     {
         try
         {
-            // Validate client exists
-            var client = await _context.Clients
-                .FirstOrDefaultAsync(c => c.Id == request.ClientId);
+            // Validate project exists
+            var project = await _context.Projects
+                .FirstOrDefaultAsync(c => c.Id == request.ProjectId);
 
-            if (client == null)
+            if (project == null)
             {
                 var validationError = new ValidationError
                 {
-                    Key = nameof(request.ClientId),
-                    ErrorMessage = "Client not found."
+                    Key = nameof(request.ProjectId),
+                    ErrorMessage = "Project not found."
                 };
-                return Result<ClientSchemaAssignmentResponse>.Invalid(new List<ValidationError> { validationError });
+                return Result<ProjectSchemaAssignmentResponse>.Invalid(new List<ValidationError> { validationError });
             }
 
             // Validate all schemas exist and are active
@@ -331,7 +331,7 @@ public class ClientService : IClientService
                     Key = nameof(request.SchemaIds),
                     ErrorMessage = $"Schemas with IDs [{string.Join(", ", missingSchemaIds)}] not found."
                 };
-                return Result<ClientSchemaAssignmentResponse>.Invalid(new List<ValidationError> { validationError });
+                return Result<ProjectSchemaAssignmentResponse>.Invalid(new List<ValidationError> { validationError });
             }
 
             var errors = new List<string>();
@@ -341,17 +341,17 @@ public class ClientService : IClientService
 
             try
             {
-                // Remove existing schema assignments for this client
-                var existingAssignments = await _context.ClientSchemas
-                    .Where(cs => cs.ClientId == request.ClientId)
+                // Remove existing schema assignments for this project
+                var existingAssignments = await _context.ProjectSchemas
+                    .Where(cs => cs.ProjectId == request.ProjectId)
                     .ToListAsync();
 
                 if (existingAssignments.Any())
                 {
-                    _context.ClientSchemas.RemoveRange(existingAssignments);
+                    _context.ProjectSchemas.RemoveRange(existingAssignments);
                     await _context.SaveChangesAsync();
-                    _logger.LogInformation("Removed {Count} existing schema assignments for client {ClientId}", 
-                        existingAssignments.Count, request.ClientId);
+                    _logger.LogInformation("Removed {Count} existing schema assignments for project {ProjectId}", 
+                        existingAssignments.Count, request.ProjectId);
                 }
 
                 // Create new schema assignments
@@ -359,14 +359,14 @@ public class ClientService : IClientService
                 {
                     try
                     {
-                        var clientSchema = new Fluid.Entities.Entities.ClientSchema
+                        var projectSchema = new Fluid.Entities.Entities.ProjectSchema
                         {
-                            ClientId = request.ClientId,
+                            ProjectId = request.ProjectId,
                             SchemaId = schema.Id,
                             CreatedAt = DateTime.UtcNow
                         };
 
-                        _context.ClientSchemas.Add(clientSchema);
+                        _context.ProjectSchemas.Add(projectSchema);
 
                         assignedSchemas.Add(new AssignedSchemaInfo
                         {
@@ -374,35 +374,35 @@ public class ClientService : IClientService
                             SchemaName = schema.Name,
                             Description = schema.Description,
                             IsActive = schema.IsActive,
-                            AssignedAt = clientSchema.CreatedAt
+                            AssignedAt = projectSchema.CreatedAt
                         });
 
-                        _logger.LogDebug("Assigned schema {SchemaId} to client {ClientId}", schema.Id, request.ClientId);
+                        _logger.LogDebug("Assigned schema {SchemaId} to project {ProjectId}", schema.Id, request.ProjectId);
                     }
                     catch (Exception ex)
                     {
                         errors.Add($"Failed to assign schema '{schema.Name}' (ID: {schema.Id}): {ex.Message}");
-                        _logger.LogWarning(ex, "Failed to assign schema {SchemaId} to client {ClientId}", schema.Id, request.ClientId);
+                        _logger.LogWarning(ex, "Failed to assign schema {SchemaId} to project {ProjectId}", schema.Id, request.ProjectId);
                     }
                 }
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                var response = new ClientSchemaAssignmentResponse
+                var response = new ProjectSchemaAssignmentResponse
                 {
-                    ClientId = request.ClientId,
-                    ClientName = client.Name,
+                    ProjectId = request.ProjectId,
+                    ProjectName = project.Name,
                     TotalAssignedSchemas = assignedSchemas.Count,
                     AssignedSchemas = assignedSchemas.OrderBy(a => a.SchemaName).ToList(),
                     Errors = errors
                 };
 
-                _logger.LogInformation("Schema assignment completed for client {ClientId}. Assigned: {AssignedCount}, Errors: {ErrorCount}", 
-                    request.ClientId, assignedSchemas.Count, errors.Count);
+                _logger.LogInformation("Schema assignment completed for project {ProjectId}. Assigned: {AssignedCount}, Errors: {ErrorCount}", 
+                    request.ProjectId, assignedSchemas.Count, errors.Count);
 
-                return Result<ClientSchemaAssignmentResponse>.Success(response, 
-                    $"Successfully assigned {assignedSchemas.Count} schemas to client" + 
+                return Result<ProjectSchemaAssignmentResponse>.Success(response, 
+                    $"Successfully assigned {assignedSchemas.Count} schemas to project" + 
                     (errors.Any() ? $" with {errors.Count} errors" : ""));
             }
             catch
@@ -413,8 +413,8 @@ public class ClientService : IClientService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error assigning schemas to client {ClientId}", request.ClientId);
-            return Result<ClientSchemaAssignmentResponse>.Error("An error occurred while assigning schemas to the client.");
+            _logger.LogError(ex, "Error assigning schemas to project {ProjectId}", request.ProjectId);
+            return Result<ProjectSchemaAssignmentResponse>.Error("An error occurred while assigning schemas to the project.");
         }
     }
 }

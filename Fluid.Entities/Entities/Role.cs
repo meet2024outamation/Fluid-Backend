@@ -33,11 +33,6 @@ public class Role
     [InverseProperty("RoleModifiedBies")]
     public virtual User? ModifiedBy { get; set; }
 
-
-    [InverseProperty("Role")]
-    public virtual ICollection<RolePermission> RolePermissions { get; set; } = new List<RolePermission>();
-
-
     [InverseProperty("Role")]
     public virtual ICollection<UserRole> UserRoleUsers { get; set; } = new List<UserRole>();
 }

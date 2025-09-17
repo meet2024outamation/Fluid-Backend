@@ -4,7 +4,7 @@ namespace Fluid.API.Models.FieldMapping;
 
 public record CreateFieldMappingRequest(
     [Required]
-    int ClientId,
+    int ProjectId,
     
     [Required]
     int SchemaId,
@@ -21,7 +21,7 @@ public record CreateFieldMappingRequest(
 
 public record CreateBulkFieldMappingRequest(
     [Required]
-    int ClientId,
+    int ProjectId,
     
     [Required]
     int SchemaId,
@@ -44,7 +44,7 @@ public record FieldMappingItem(
 
 public record FieldMappingResponse(
     int Id,
-    int ClientId,
+    int ProjectId,
     int SchemaId,
     int SchemaFieldId,
     string InputField,
@@ -53,7 +53,7 @@ public record FieldMappingResponse(
 );
 
 public record BulkFieldMappingResponse(
-    int ClientId,
+    int ProjectId,
     int SchemaId,
     int TotalMappings,
     List<FieldMappingResponse> CreatedMappings,

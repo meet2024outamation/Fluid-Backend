@@ -11,9 +11,9 @@ public interface ISchemaService
     Task<Result<SchemaResponse>> CreateAsync(CreateSchemaRequest request, int currentUserId);
 
     /// <summary>
-    /// Gets all schemas, optionally filtered by client ID
+    /// Gets all schemas, optionally filtered by project ID
     /// </summary>
-    Task<Result<List<SchemaListResponse>>> GetAllAsync(int? clientId = null);
+    Task<Result<List<SchemaListResponse>>> GetAllAsync(int? projectId = null);
 
     /// <summary>
     /// Gets a schema by ID with all schema field details

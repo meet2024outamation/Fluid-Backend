@@ -1,19 +1,37 @@
-﻿namespace Fluid.API.Infrastructure.Interfaces
+﻿using SharedKernel.Result;
+using static Fluid.API.Models.User.UserParam;
+
+namespace Fluid.API.Infrastructure.Interfaces;
+
+public interface IManageUserService
 {
-    public interface IManageUserService
-    {
-        //public Task<IEnumerable<UserList>> ListUsersAsync();
-        //public Task<Result<UserEM>> GetUserById(int id);
-        //public Task<Result<UserVM>> GetUserByUniqueId(string uniqueId);
-        //public Task<Result<UserBasicDetailsDto>> GetUserByEmail(string email);
-        //public Task<Result<UserEM>> CreateUser(UserCM userCM);
-        //public Task<Result<UserCM>> UpdateUser(UserEM user);
-        //public Task<Result<int>> UpdateUserStatusAsync(int userId, bool isActive);
-        //public Task<Result<List<UserBasicInfo>>> GetActiveUsersByRoleAsync(int roleId);
-        //public Task<Result<List<UserBasicInfo>>> GetActiveUsersByPermissionAsync(int permission);
-        //public Task<Result<bool>> IsEmailExists(string email, int userId);
-        //public Task<Result<UserDetail?>> GetUserDetailById(string id);
-        //public Task<IList<string>> GetEmails();
-        //public Task<Result<UserBasicDetailsDto>> GetUserBasicDetailsById(int id);
-    }
+    /// <summary>
+    /// Creates a new user with Azure AD integration and role assignment
+    /// </summary>
+    Task<Result<UserEM>> CreateUser(UserCM userCM);
+
+    /// <summary>
+    /// Gets a user by their ID
+    /// </summary>
+    Task<Result<UserEM>> GetUserById(int id);
+
+    /// <summary>
+    /// Checks if an email already exists in the system
+    /// </summary>
+    Task<Result<bool>> IsEmailExists(string email, int userId);
+
+    /// <summary>
+    /// Gets a list of all active users
+    /// </summary>
+    Task<IEnumerable<UserList>> ListUsersAsync();
+
+    /// <summary>
+    /// Updates an existing user
+    /// </summary>
+    Task<Result<UserCM>> UpdateUser(UserEM user);
+
+    /// <summary>
+    /// Updates user status (active/inactive) and syncs with Azure AD
+    /// </summary>
+    Task<Result<int>> UpdateUserStatusAsync(int userId, bool isActive);
 }
