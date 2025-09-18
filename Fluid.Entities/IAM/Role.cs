@@ -1,30 +1,32 @@
-﻿using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Fluid.Entities.Entities;
+namespace Fluid.Entities.IAM;
 
 public class Role
 {
     [Key]
     public int Id { get; set; }
 
-    [StringLength(256)]
-    [Unicode(false)]
-    public string Name { get; set; } = null!;
+    [Required]
+    [StringLength(100)]
+    public string Name { get; set; } = string.Empty;
 
-    public bool IsEditable { get; set; }
+    [StringLength(255)]
+    public string? Description { get; set; }
+    public bool IsForServicePrincipal { get; set; } = false;
+    public bool IsActive { get; set; } = true;
+    public DateTimeOffset CreatedDateTime { get; set; } = DateTimeOffset.UtcNow;
 
-    public bool IsForServicePrincipal { get; set; }
+    public DateTimeOffset? ModifiedDateTime { get; set; }
 
-    public bool IsActive { get; set; }
-
-    public DateTimeOffset? CreatedDateTime { get; set; }
-
+    [ForeignKey(nameof(CreatedBy))]
     public int? CreatedById { get; set; }
 
+    [ForeignKey(nameof(ModifiedBy))]
     public int? ModifiedById { get; set; }
 
+    // Navigation properties
     [ForeignKey("CreatedById")]
     [InverseProperty("RoleCreatedBies")]
     public virtual User? CreatedBy { get; set; }

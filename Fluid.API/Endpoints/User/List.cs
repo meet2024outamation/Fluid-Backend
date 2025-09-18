@@ -1,5 +1,6 @@
 using Ardalis.ApiEndpoints;
 using Microsoft.AspNetCore.Mvc;
+using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
 using Fluid.API.Infrastructure.Interfaces;
 using static Fluid.API.Models.User.UserParam;
@@ -9,7 +10,7 @@ namespace Fluid.API.Endpoints.User;
 [Route("api/users")]
 public class List : EndpointBaseAsync
     .WithoutRequest
-    .WithActionResult<IEnumerable<UserList>>
+    .WithActionResult<List<UserListItem>>
 {
     private readonly IManageUserService _manageUserService;
 
@@ -21,14 +22,20 @@ public class List : EndpointBaseAsync
     [HttpGet]
     [SwaggerOperation(
         Summary = "Get all users",
-        Description = "Retrieves a list of all active users in the system",
+        Description = "Retrieves a list of all users with optional filtering by active status using simplified list model",
         OperationId = "User.List",
         Tags = new[] { "Users" })
     ]
-    public async override Task<ActionResult<IEnumerable<UserList>>> HandleAsync(
+    [SwaggerResponse(200, "Users retrieved successfully", typeof(List<UserListItem>))]
+    public async override Task<ActionResult<List<UserListItem>>> HandleAsync(
         CancellationToken cancellationToken = default)
     {
-        var result = await _manageUserService.ListUsersAsync();
-        return Ok(result);
+        // You can also add query parameters for filtering
+        var isActive = HttpContext.Request.Query.ContainsKey("isActive")
+            ? bool.Parse(HttpContext.Request.Query["isActive"].ToString())
+            : (bool?)null;
+
+        var result = await _manageUserService.GetUsersAsync(isActive);
+        return result.ToActionResult();
     }
 }

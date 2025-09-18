@@ -53,7 +53,7 @@ public class ProjectService : IProjectService
 
             // Load the created project with user information
             var createdProject = await _context.Projects
-                .Include(c => c.CreatedByUser)
+                //.Include(c => c.CreatedByUser)
                 .FirstAsync(c => c.Id == project.Id);
 
             var response = new ProjectResponse
@@ -65,7 +65,7 @@ public class ProjectService : IProjectService
                 CreatedAt = createdProject.CreatedAt,
                 UpdatedAt = createdProject.UpdatedAt,
                 CreatedBy = createdProject.CreatedBy,
-                CreatedByName = createdProject.CreatedByUser.Name
+                //CreatedByName = createdProject.CreatedByUser.Name
             };
 
             _logger.LogInformation("Project created successfully with ID: {ProjectId}", createdProject.Id);
@@ -83,7 +83,7 @@ public class ProjectService : IProjectService
         try
         {
             var projects = await _context.Projects
-                .Include(c => c.CreatedByUser)
+                //.Include(c => c.CreatedByUser)
                 .OrderBy(c => c.Name)
                 .Select(c => new ProjectListResponse
                 {
@@ -110,7 +110,7 @@ public class ProjectService : IProjectService
         try
         {
             var project = await _context.Projects
-                .Include(c => c.CreatedByUser)
+                //.Include(c => c.CreatedByUser)
                 .FirstOrDefaultAsync(c => c.Id == id);
 
             if (project == null)
@@ -128,7 +128,7 @@ public class ProjectService : IProjectService
                 CreatedAt = project.CreatedAt,
                 UpdatedAt = project.UpdatedAt,
                 CreatedBy = project.CreatedBy,
-                CreatedByName = project.CreatedByUser.Name
+                //CreatedByName = project.CreatedByUser.Name
             };
 
             _logger.LogInformation("Retrieved project with ID: {ProjectId}", id);
@@ -146,7 +146,7 @@ public class ProjectService : IProjectService
         try
         {
             var project = await _context.Projects
-                .Include(c => c.CreatedByUser)
+                //.Include(c => c.CreatedByUser)
                 .FirstOrDefaultAsync(c => c.Id == id);
 
             if (project == null)
@@ -192,7 +192,7 @@ public class ProjectService : IProjectService
                 CreatedAt = project.CreatedAt,
                 UpdatedAt = project.UpdatedAt,
                 CreatedBy = project.CreatedBy,
-                CreatedByName = project.CreatedByUser.Name
+                //CreatedByName = project.CreatedByUser.Name
             };
 
             _logger.LogInformation("Project updated successfully with ID: {ProjectId}", id);
@@ -210,7 +210,7 @@ public class ProjectService : IProjectService
         try
         {
             var project = await _context.Projects
-                .Include(c => c.CreatedByUser)
+                //.Include(c => c.CreatedByUser)
                 .FirstOrDefaultAsync(c => c.Id == id);
 
             if (project == null)
@@ -234,7 +234,7 @@ public class ProjectService : IProjectService
                 CreatedAt = project.CreatedAt,
                 UpdatedAt = project.UpdatedAt,
                 CreatedBy = project.CreatedBy,
-                CreatedByName = project.CreatedByUser.Name
+                //CreatedByName = project.CreatedByUser.Name
             };
 
             _logger.LogInformation("Project status updated successfully for ID: {ProjectId}, IsActive: {IsActive}", id, request.IsActive);
@@ -350,7 +350,7 @@ public class ProjectService : IProjectService
                 {
                     _context.ProjectSchemas.RemoveRange(existingAssignments);
                     await _context.SaveChangesAsync();
-                    _logger.LogInformation("Removed {Count} existing schema assignments for project {ProjectId}", 
+                    _logger.LogInformation("Removed {Count} existing schema assignments for project {ProjectId}",
                         existingAssignments.Count, request.ProjectId);
                 }
 
@@ -398,11 +398,11 @@ public class ProjectService : IProjectService
                     Errors = errors
                 };
 
-                _logger.LogInformation("Schema assignment completed for project {ProjectId}. Assigned: {AssignedCount}, Errors: {ErrorCount}", 
+                _logger.LogInformation("Schema assignment completed for project {ProjectId}. Assigned: {AssignedCount}, Errors: {ErrorCount}",
                     request.ProjectId, assignedSchemas.Count, errors.Count);
 
-                return Result<ProjectSchemaAssignmentResponse>.Success(response, 
-                    $"Successfully assigned {assignedSchemas.Count} schemas to project" + 
+                return Result<ProjectSchemaAssignmentResponse>.Success(response,
+                    $"Successfully assigned {assignedSchemas.Count} schemas to project" +
                     (errors.Any() ? $" with {errors.Count} errors" : ""));
             }
             catch

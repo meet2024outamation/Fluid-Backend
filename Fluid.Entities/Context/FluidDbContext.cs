@@ -1,4 +1,6 @@
+using Finbuckle.MultiTenant.EntityFrameworkCore.Stores.EFCoreStore;
 using Fluid.Entities.Entities;
+using Fluid.Entities.IAM;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fluid.Entities.Context;
@@ -11,8 +13,10 @@ public class FluidDbContext : DbContext
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseSnakeCaseNamingConvention();
+        base.OnConfiguring(optionsBuilder);
     }
-    // DbSets for all entities
+
+    // DbSets for tenant-specific entities only
     public DbSet<Project> Projects { get; set; }
     public DbSet<Schema> Schemas { get; set; }
     public DbSet<SchemaField> SchemaFields { get; set; }
@@ -23,7 +27,6 @@ public class FluidDbContext : DbContext
     public DbSet<Document> Documents { get; set; }
     public DbSet<FieldMapping> FieldMappings { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
-
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -38,20 +41,20 @@ public class FluidDbContext : DbContext
                   .HasConversion<string>()
                   .HasMaxLength(50);
 
-            entity.HasOne(e => e.CreatedByUser)
-                  .WithMany(u => u.CreatedProjects)
-                  .HasForeignKey(e => e.CreatedBy)
-                  .OnDelete(DeleteBehavior.Restrict);
+            //entity.HasOne(e => e.CreatedByUser)
+            //      .WithMany(u => u.CreatedProjects)
+            //      .HasForeignKey(e => e.CreatedBy)
+            //      .OnDelete(DeleteBehavior.Restrict);
         });
 
         // Configure Schema entity
         modelBuilder.Entity<Schema>(entity =>
         {
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.HasOne(e => e.CreatedByUser)
-                  .WithMany(u => u.CreatedSchemas)
-                  .HasForeignKey(e => e.CreatedBy)
-                  .OnDelete(DeleteBehavior.Restrict);
+            //entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            //entity.HasOne(e => e.CreatedByUser)
+            //      .WithMany(u => u.CreatedSchemas)
+            //      .HasForeignKey(e => e.CreatedBy)
+            //      .OnDelete(DeleteBehavior.Restrict);
         });
 
         // Configure SchemaField entity
@@ -97,13 +100,10 @@ public class FluidDbContext : DbContext
                   .HasForeignKey(e => e.ProjectId)
                   .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasOne(e => e.CreatedByUser)
-                  .WithMany(u => u.CreatedBatches)
-                  .HasForeignKey(e => e.CreatedBy)
-                  .OnDelete(DeleteBehavior.Restrict);
+            // Note: CreatedByUser references will be handled by UserId only
         });
 
-        // Configure WorkItem entity
+        // Configure Order entity
         modelBuilder.Entity<Order>(entity =>
         {
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
@@ -121,13 +121,10 @@ public class FluidDbContext : DbContext
                   .HasForeignKey(e => e.ProjectId)
                   .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasOne(e => e.AssignedUser)
-                  .WithMany(u => u.AssignedWorkItems)
-                  .HasForeignKey(e => e.AssignedTo)
-                  .OnDelete(DeleteBehavior.SetNull);
+            // Note: AssignedUser references will be handled by UserId only
         });
 
-        // Configure WorkItemData entity
+        // Configure OrderData entity
         modelBuilder.Entity<OrderData>(entity =>
         {
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
@@ -144,10 +141,7 @@ public class FluidDbContext : DbContext
                   .HasForeignKey(e => e.SchemaFieldId)
                   .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasOne(e => e.VerifiedByUser)
-                  .WithMany(u => u.VerifiedWorkItemData)
-                  .HasForeignKey(e => e.VerifiedBy)
-                  .OnDelete(DeleteBehavior.SetNull);
+            // Note: VerifiedByUser references will be handled by UserId only
         });
 
         // Configure Document entity
@@ -179,10 +173,7 @@ public class FluidDbContext : DbContext
                   .HasForeignKey(e => e.SchemaFieldId)
                   .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasOne(e => e.CreatedByUser)
-                  .WithMany(u => u.CreatedFieldMappings)
-                  .HasForeignKey(e => e.CreatedBy)
-                  .OnDelete(DeleteBehavior.Restrict);
+            // Note: CreatedByUser references will be handled by UserId only
         });
 
         // Configure AuditLog entity
@@ -193,15 +184,12 @@ public class FluidDbContext : DbContext
                   .HasConversion<string>()
                   .HasMaxLength(20);
 
-            entity.HasOne(e => e.User)
-                  .WithMany(u => u.ChangedAuditLogs)
-                  .HasForeignKey(e => e.ChangedBy)
-                  .OnDelete(DeleteBehavior.SetNull);
+            // Note: User references will be handled by UserId only
         });
     }
 }
 
-public class FluidIAMDbContext : DbContext
+public class FluidIAMDbContext : EFCoreStoreDbContext<Tenant>
 {
     public FluidIAMDbContext(DbContextOptions<FluidIAMDbContext> options) : base(options)
     {
@@ -245,7 +233,8 @@ public class FluidIAMDbContext : DbContext
         // Configure Tenant entity
         modelBuilder.Entity<Tenant>(entity =>
         {
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            // Ensure Identifier is unique
             entity.HasIndex(e => e.Identifier).IsUnique();
 
             entity.HasOne(e => e.CreatedByUser)

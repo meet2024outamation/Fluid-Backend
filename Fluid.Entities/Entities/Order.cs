@@ -20,7 +20,6 @@ public class Order
 
     public int Priority { get; set; } = 5; // 1-10 priority scale
 
-    [ForeignKey(nameof(AssignedUser))]
     public int? AssignedTo { get; set; }
 
     public DateTime? AssignedAt { get; set; }
@@ -39,7 +38,7 @@ public class Order
     // Navigation properties
     public Batch Batch { get; set; } = null!;
     public Project Project { get; set; } = null!;
-    public User? AssignedUser { get; set; }
+    //public User? AssignedUser { get; set; }
     public ICollection<Document> Documents { get; set; } = new List<Document>();
     public ICollection<OrderData> OrderData { get; set; } = new List<OrderData>();
 }

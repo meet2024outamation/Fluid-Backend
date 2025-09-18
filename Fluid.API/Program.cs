@@ -1,28 +1,126 @@
-﻿using Fluid.API.Constants;
+﻿using Finbuckle.MultiTenant;
+using Finbuckle.MultiTenant.Abstractions;
+using Fluid.API.Authorization;
+using Fluid.API.Constants;
+using Fluid.API.Helpers;
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Infrastructure.Services;
 using Fluid.Entities.Context;
 using Fluid.Entities.Entities;
+using Fluid.Entities.IAM;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using SharedKernel.Models;
 using SharedKernel.Services;
+using System.Text;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 
+// Add Authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+        var secretKey = jwtSettings["SecretKey"];
+        var issuer = jwtSettings["Issuer"];
+        var audience = jwtSettings["Audience"];
+
+        if (!string.IsNullOrEmpty(secretKey))
+        {
+            // Use symmetric key for development
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = issuer,
+                ValidAudience = audience,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+                ClockSkew = TimeSpan.Zero
+            };
+        }
+        else
+        {
+            // Use Azure AD configuration for production
+            var azureAdSettings = builder.Configuration.GetSection("AzureAd");
+            options.Authority = $"https://login.microsoftonline.com/{azureAdSettings["TenantId"]}/v2.0";
+            options.Audience = azureAdSettings["ClientId"];
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ClockSkew = TimeSpan.Zero
+            };
+        }
+
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogError(context.Exception, "Authentication failed");
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogInformation("Token validated for user: {User}", context.Principal?.Identity?.Name);
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+// Add Authorization
+builder.Services.AddAuthorization(options =>
+{
+    // Define policies for different roles
+    options.AddPolicy(AuthorizationPolicies.ProductOwnerPolicy, policy =>
+        policy.Requirements.Add(new RoleRequirement(ApplicationRoles.ProductOwner)));
+
+    options.AddPolicy(AuthorizationPolicies.AdminPolicy, policy =>
+        policy.Requirements.Add(new RoleRequirement(ApplicationRoles.TenantAdmin)));
+
+    options.AddPolicy(AuthorizationPolicies.ManagerPolicy, policy =>
+        policy.Requirements.Add(new RoleRequirement(ApplicationRoles.Manager, ApplicationRoles.TenantAdmin)));
+
+    options.AddPolicy(AuthorizationPolicies.OperatorPolicy, policy =>
+        policy.Requirements.Add(new RoleRequirement(ApplicationRoles.Operator, ApplicationRoles.Manager, ApplicationRoles.TenantAdmin)));
+});
+
+// Register authorization handler
+builder.Services.AddScoped<IAuthorizationHandler, RoleAuthorizationHandler>();
+
+// Configure Azure AD settings
+builder.Services.Configure<AzureADConfig>(builder.Configuration.GetSection("AzureAdConfig"));
+
 // Register application services
 builder.Services.AddTransient<IProjectService, ProjectService>();
 builder.Services.AddTransient<ICurrentUserService, CurrentUserService>();
+builder.Services.AddTransient<IGraphService, GraphService>();
+builder.Services.AddTransient<IManageUserService, ManageUserService>();
 builder.Services.AddTransient<IBatchService, BatchService>();
 builder.Services.AddTransient<IOrderService, OrderService>();
 // TODO: Uncomment when SimpleFieldMappingService is needed
 builder.Services.AddTransient<IFieldMappingService, FieldMappingService>();
 builder.Services.AddTransient<ISchemaService, SchemaService>();
 builder.Services.AddTransient<IUser, AuthUser>();
+builder.Services.AddTransient<ITenantService, TenantService>();
 
+builder.Services.AddMultiTenant<Tenant>()
+    .WithClaimStrategy("tenant")
+    .WithHeaderStrategy("X-Tenant-Id")
+    .WithRouteStrategy("tenant")
+    .WithEFCoreStore<FluidIAMDbContext, Tenant>();
 
 // Add CORS
 builder.Services.AddCors(options =>
@@ -38,20 +136,19 @@ builder.Services.AddDistributedMemoryCache();
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
-builder.Services.AddDbContext<FluidDbContext>(options =>
+builder.Services.AddDbContext<FluidDbContext>((serviceProvider, options) =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    var tenantInfo = serviceProvider.GetService<ITenantInfo>() as Tenant;
+
+    var connectionString = tenantInfo?.ConnectionString ??
+                           builder.Configuration.GetConnectionString("DefaultConnection");
 
     if (string.IsNullOrEmpty(connectionString))
-    {
-        throw new InvalidOperationException(
-            "PostgreSQL connection string 'DefaultConnection' not found. " +
-            "Please check your appsettings.json file.");
-    }
+        throw new InvalidOperationException("No tenant connection string found!");
 
-    options.UseNpgsql(connectionString);
+    options.UseNpgsql(connectionString)
+           .UseSnakeCaseNamingConvention();
 
-    // Enable detailed errors in development
     if (builder.Environment.IsDevelopment())
     {
         options.EnableSensitiveDataLogging();
@@ -59,7 +156,6 @@ builder.Services.AddDbContext<FluidDbContext>(options =>
         options.LogTo(Console.WriteLine, LogLevel.Information);
     }
 });
-
 builder.Services.AddDbContext<FluidIAMDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("IAMConnection");
@@ -99,6 +195,31 @@ builder.Services.AddSwaggerGen(c =>
 
     // Enable annotations for better Swagger documentation
     c.EnableAnnotations();
+
+    // Add JWT Authentication to Swagger
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
 });
 
 var app = builder.Build();
@@ -130,39 +251,29 @@ if (app.Environment.IsDevelopment())
         {
             logger.LogInformation("🔌 Initializing PostgreSQL database...");
 
-            // This will create the database if it doesn't exist
-            // Note: The postgres user must have CREATEDB privileges
-            await context.Database.EnsureCreatedAsync();
+            // Initialize IAM database first (this contains tenant information)
             await iamContext.Database.EnsureCreatedAsync();
-            logger.LogInformation("✅ Database created/verified successfully!");
 
-            // Apply any pending migrations (in case you add them later)
-            var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
             var pendingIAMMigrations = await iamContext.Database.GetPendingMigrationsAsync();
-            if (pendingMigrations.Any())
-            {
-                logger.LogInformation("🔄 Applying pending migrations...");
-                await context.Database.MigrateAsync();
-                logger.LogInformation("✅ Migrations applied successfully!");
-            }
-            else
-            {
-                logger.LogInformation("✅ Database is up to date!");
-            }
-
             if (pendingIAMMigrations.Any())
             {
-                logger.LogInformation("🔄 Applying pending migrations...");
+                logger.LogInformation("🔄 Applying pending IAM migrations...");
                 await iamContext.Database.MigrateAsync();
-                logger.LogInformation("✅ Migrations applied successfully!");
+                logger.LogInformation("✅ IAM migrations applied successfully!");
             }
             else
             {
-                logger.LogInformation("✅ Database is up to date!");
+                logger.LogInformation("✅ IAM database is up to date!");
             }
 
-            // Seed initial data
-            await SeedDatabaseAsync(context, iamContext, logger);
+            // Seed initial data first (this may create tenants)
+            //await SeedDatabaseAsync(context, iamContext, logger, builder.Configuration);
+
+            // Apply migrations to all tenant databases
+            //logger.LogInformation("🏢 Starting multi-tenant migration process...");
+            await MigrationHelper.ApplyMigrationsAsync(app.Services, logger);
+
+            logger.LogInformation("✅ Database initialization completed successfully!");
         }
         catch (Exception ex)
         {
@@ -191,9 +302,14 @@ if (app.Environment.IsDevelopment())
     app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 }
 
+app.UseMultiTenant();
 app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
+
+// Add authentication and authorization middleware
+app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 
 // Log the Swagger URL on startup
@@ -211,103 +327,40 @@ if (app.Environment.IsDevelopment())
 
 app.Run();
 
-static async Task SeedDatabaseAsync(FluidDbContext context, FluidIAMDbContext iamContext, ILogger logger)
+static async Task SeedDatabaseAsync(FluidDbContext context, FluidIAMDbContext iamContext, ILogger logger, IConfiguration configuration)
 {
     try
     {
         // Seed default roles if none exist
-        //if (!await context.Roles.AnyAsync())
-        //{
-        //    logger.LogInformation("Seeding default roles...");
+        if (!await iamContext.Roles.AnyAsync())
+        {
+            logger.LogInformation("Seeding default roles...");
 
-        //    var roles = new[]
-        //    {
-        //        new Role
-        //        {
-        //            Name = "Admin",
-        //            IsEditable = false,
-        //            IsForServicePrincipal = false,
-        //            IsActive = true,
-        //            CreatedDateTime = DateTimeOffset.UtcNow
-        //        },
-        //        new Role
-        //        {
-        //            Name = "Manager",
-        //            IsEditable = true,
-        //            IsForServicePrincipal = false,
-        //            IsActive = true,
-        //            CreatedDateTime = DateTimeOffset.UtcNow
-        //        },
-        //        new Role
-        //        {
-        //            Name = "Operator",
-        //            IsEditable = true,
-        //            IsForServicePrincipal = false,
-        //            IsActive = true,
-        //            CreatedDateTime = DateTimeOffset.UtcNow
-        //        }
-        //    };
+            var roles = new[]
+            {
+                new Role
+                {
+                    Name = ApplicationRoles.ProductOwner,
+                    Description = "Product Owner with full tenant management access",
+                    IsForServicePrincipal = false,
+                    IsActive = true,
+                    CreatedDateTime = DateTimeOffset.UtcNow
+                },
+                new Role
+                {
+                    Name = ApplicationRoles.TenantAdmin,
+                    Description = "Administrator with tenant access",
+                    IsForServicePrincipal = false,
+                    IsActive = true,
+                    CreatedDateTime = DateTimeOffset.UtcNow
+                }
+            };
 
-        //    context.Roles.AddRange(roles);
-        //    await context.SaveChangesAsync();
+            iamContext.Roles.AddRange(roles);
+            await iamContext.SaveChangesAsync();
 
-        //    logger.LogInformation("✅ Default roles seeded successfully!");
-        //}
-
-        //// Seed default users if none exist
-        //if (!await context.Users.AnyAsync())
-        //{
-        //    logger.LogInformation("Seeding default users...");
-
-        //    var users = new[]
-        //    {
-        //        new User
-        //        {
-        //            AzureAdId = "system-default",
-        //            Email = "system@xtract.com",
-        //            FirstName = "System",
-        //            LastName = "User",
-        //            IsActive = true,
-        //            CreatedAt = DateTime.UtcNow,
-        //            UpdatedAt = DateTime.UtcNow
-        //        },
-        //        new User
-        //        {
-        //            AzureAdId = "admin-user",
-        //            Email = "admin@xtract.com",
-        //            FirstName = "Admin",
-        //            LastName = "User",
-        //            IsActive = true,
-        //            CreatedAt = DateTime.UtcNow,
-        //            UpdatedAt = DateTime.UtcNow
-        //        }
-        //    };
-
-        //    context.Users.AddRange(users);
-        //    await context.SaveChangesAsync();
-
-        //    // Assign admin role to admin user
-        //    var adminRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Admin");
-        //    var adminUser = await context.Users.FirstOrDefaultAsync(u => u.AzureAdId == "admin-user");
-
-        //    if (adminRole != null && adminUser != null)
-        //    {
-        //        var userRole = new Fluid.Entities.Entities.UserRole
-        //        {
-        //            UserId = adminUser.Id,
-        //            RoleId = adminRole.Id,
-        //            CreatedDateTime = DateTimeOffset.UtcNow
-        //        };
-
-        //        context.UserRoles.Add(userRole);
-        //        await context.SaveChangesAsync();
-        //    }
-
-        //    logger.LogInformation("✅ Default users seeded successfully!");
-        //}
-
-        // Seed default permissions if none exist
-
+            logger.LogInformation("✅ Default roles seeded successfully!");
+        }
 
         // Seed default schemas if none exist
         if (!await context.Schemas.AnyAsync())

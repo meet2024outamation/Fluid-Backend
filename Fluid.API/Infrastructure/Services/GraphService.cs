@@ -46,7 +46,7 @@ namespace Fluid.API.Infrastructure.Services
         /// </summary>
         /// <param name="email"></param>
         /// <returns></returns>
-        public async Task<Invitation?> InviteGuestUser(Entities.Entities.User user)
+        public async Task<Invitation?> InviteGuestUser(Entities.IAM.User user)
         {
             try
             {
@@ -117,7 +117,7 @@ namespace Fluid.API.Infrastructure.Services
         /// </summary>
         /// <param name="user"></param>
         /// <returns></returns>
-        public async Task UpdateUser(Entities.Entities.User user)
+        public async Task UpdateUser(Entities.IAM.User user)
         {
             try
             {

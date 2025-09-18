@@ -47,7 +47,7 @@ public class ProjectResponse
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public int CreatedBy { get; set; }
-    public string CreatedByName { get; set; } = string.Empty;
+    public string? CreatedByName { get; set; } = string.Empty;
 }
 
 public class ProjectListResponse

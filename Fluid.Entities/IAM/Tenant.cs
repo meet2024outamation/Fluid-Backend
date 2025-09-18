@@ -1,12 +1,14 @@
+using Finbuckle.MultiTenant.Abstractions;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Fluid.Entities.Entities;
+namespace Fluid.Entities.IAM;
 
-public class Tenant
+public class Tenant : ITenantInfo
 {
     [Key]
-    public int Id { get; set; }
+    [StringLength(100)]
+    public string Id { get; set; } = string.Empty;
 
     [Required]
     [StringLength(100)]
@@ -48,7 +50,4 @@ public class Tenant
     // Navigation property for UserRoles
     [InverseProperty("Tenant")]
     public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
-
-    // Unique constraint on identifier
-    // This will be configured in the DbContext
 }

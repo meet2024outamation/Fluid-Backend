@@ -1,0 +1,80 @@
+### Get Accessible Tenants for Current User
+GET {{host}}/api/users/accessible-tenants
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Test Product Owner Access (should return isProductOwner: true)
+GET {{host}}/api/users/accessible-tenants
+Authorization: Bearer {{productOwnerToken}}
+Content-Type: application/json
+
+###
+
+### Test Tenant Owner Access (should return tenantOwnerTenantIds array)
+GET {{host}}/api/users/accessible-tenants
+Authorization: Bearer {{tenantOwnerToken}}
+Content-Type: application/json
+
+###
+
+### Test Regular User Access (should return tenants array with projects)
+GET {{host}}/api/users/accessible-tenants
+Authorization: Bearer {{regularUserToken}}
+Content-Type: application/json
+
+###
+
+### Variables for testing
+@host = https://localhost:7253
+@authToken = your-jwt-token-here
+@productOwnerToken = product-owner-jwt-token-here
+@tenantOwnerToken = tenant-owner-jwt-token-here
+@regularUserToken = regular-user-jwt-token-here
+
+### Example with actual token (replace with your token)
+### GET https://localhost:7253/api/users/accessible-tenants
+### Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+### Expected Response Examples:
+
+### Product Owner Response:
+# {
+#   "userId": 123,
+#   "userName": "John Doe",
+#   "email": "john.doe@company.com",
+#   "isProductOwner": true,
+#   "tenantOwnerTenantIds": [],
+#   "tenants": []
+# }
+
+### Tenant Owner Response:
+# {
+#   "userId": 124,
+#   "userName": "Jane Smith",
+#   "email": "jane.smith@company.com", 
+#   "isProductOwner": false,
+#   "tenantOwnerTenantIds": ["tenant-uuid-1", "tenant-uuid-2"],
+#   "tenants": []
+# }
+
+### Regular User Response:
+# {
+#   "userId": 125,
+#   "userName": "Bob Johnson",
+#   "email": "bob.johnson@company.com",
+#   "isProductOwner": false,
+#   "tenantOwnerTenantIds": [],
+#   "tenants": [
+#     {
+#       "tenantId": "tenant-uuid",
+#       "tenantName": "Company ABC",
+#       "projects": [...]
+#     }
+#   ]
+# }
+````````
+
+
+# Response

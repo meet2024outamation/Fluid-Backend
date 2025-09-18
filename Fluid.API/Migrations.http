@@ -1,0 +1,45 @@
+### Apply migrations to all tenants (Product Owner only)
+POST {{host}}/api/admin/apply-migrations
+Authorization: Bearer {{productOwnerToken}}
+Content-Type: application/json
+
+###
+
+### Apply migrations to specific tenant (Product Owner only)
+POST {{host}}/api/admin/apply-migrations/tenant-abc
+Authorization: Bearer {{productOwnerToken}}
+Content-Type: application/json
+
+{
+  "tenantIdentifier": "tenant-abc"
+}
+
+###
+
+### Variables for testing
+@host = https://localhost:7253
+@productOwnerToken = your-product-owner-jwt-token-here
+
+### Example responses:
+
+### Success Response:
+# {
+#   "success": true,
+#   "message": "Migrations applied successfully to all tenants",
+#   "startTime": "2024-01-15T10:30:00.000Z",
+#   "endTime": "2024-01-15T10:30:05.123Z",
+#   "duration": "00:00:05.123",
+#   "processedAt": "2024-01-15T10:30:05.123Z",
+#   "errorDetails": null
+# }
+
+### Error Response:
+# {
+#   "success": false,
+#   "message": "Migration process failed: Database connection failed",
+#   "startTime": "2024-01-15T10:30:00.000Z",
+#   "endTime": "2024-01-15T10:30:01.456Z",
+#   "duration": "00:00:01.456",
+#   "processedAt": "2024-01-15T10:30:01.456Z",
+#   "errorDetails": "System.Exception: Database connection failed..."
+# }

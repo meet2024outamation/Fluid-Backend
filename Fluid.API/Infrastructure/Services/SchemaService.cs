@@ -11,11 +11,13 @@ namespace Fluid.API.Infrastructure.Services;
 public class SchemaService : ISchemaService
 {
     private readonly FluidDbContext _context;
+    private readonly FluidIAMDbContext _iamContext;
     private readonly ILogger<SchemaService> _logger;
 
-    public SchemaService(FluidDbContext context, ILogger<SchemaService> logger)
+    public SchemaService(FluidDbContext context, FluidIAMDbContext iamContext, ILogger<SchemaService> logger)
     {
         _context = context;
+        _iamContext = iamContext;
         _logger = logger;
     }
 
@@ -112,7 +114,7 @@ public class SchemaService : ISchemaService
         try
         {
             var query = _context.Schemas
-                .Include(s => s.CreatedByUser)
+                //.Include(s => s.CreatedByUser)
                 .Include(s => s.SchemaFields)
                 .AsQueryable();
 
@@ -140,7 +142,11 @@ public class SchemaService : ISchemaService
             var schemas = await query
                 .OrderBy(s => s.Name)
                 .ToListAsync();
+            var userIds = schemas.Select(s => s.CreatedBy).Where(id => id != null).Distinct().ToList();
 
+            var users = await _iamContext.Users
+                .Where(u => userIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.Name);
             var responses = schemas.Select(s => new SchemaListResponse
             {
                 Id = s.Id,
@@ -150,21 +156,23 @@ public class SchemaService : ISchemaService
                 IsActive = s.IsActive,
                 SchemaFieldCount = s.SchemaFields.Count,
                 CreatedAt = s.CreatedAt,
-                CreatedByName = s.CreatedByUser.Name
+                CreatedByName = s.CreatedBy != null && users.ContainsKey(s.CreatedBy)
+                                    ? users[s.CreatedBy]
+                                    : null,
             }).ToList();
 
-            var message = projectId.HasValue 
+            var message = projectId.HasValue
                 ? $"Retrieved {responses.Count} schemas for project {projectId.Value} successfully"
                 : $"Retrieved {responses.Count} schemas successfully";
 
-            _logger.LogInformation("Retrieved {Count} schemas{ProjectFilter}", responses.Count, 
+            _logger.LogInformation("Retrieved {Count} schemas{ProjectFilter}", responses.Count,
                 projectId.HasValue ? $" for project {projectId.Value}" : "");
-            
+
             return Result<List<SchemaListResponse>>.Success(responses, message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving schemas{ProjectFilter}", 
+            _logger.LogError(ex, "Error retrieving schemas{ProjectFilter}",
                 projectId.HasValue ? $" for project {projectId.Value}" : "");
             return Result<List<SchemaListResponse>>.Error("An error occurred while retrieving schemas.");
         }
@@ -518,7 +526,7 @@ public class SchemaService : ISchemaService
     private async Task<Entities.Entities.Schema?> GetSchemaWithDetails(int schemaId)
     {
         return await _context.Schemas
-            .Include(s => s.CreatedByUser)
+            //.Include(s => s.CreatedByUser)
             .Include(s => s.SchemaFields.OrderBy(sf => sf.DisplayOrder))
             .FirstOrDefaultAsync(s => s.Id == schemaId);
     }
@@ -547,7 +555,7 @@ public class SchemaService : ISchemaService
             CreatedAt = schema.CreatedAt,
             UpdatedAt = schema.UpdatedAt,
             CreatedBy = schema.CreatedBy,
-            CreatedByName = schema.CreatedByUser.Name,
+            //CreatedByName = schema.CreatedByUser.Name,
             SchemaFields = schemaFields
         };
     }

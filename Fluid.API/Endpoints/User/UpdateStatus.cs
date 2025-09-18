@@ -3,24 +3,20 @@ using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
 using Fluid.API.Infrastructure.Interfaces;
+using static Fluid.API.Models.User.UserParam;
 
 namespace Fluid.API.Endpoints.User;
 
 public class UpdateStatusRequest
 {
     [FromRoute] public int Id { get; set; }
-    [FromBody] public UpdateUserStatusRequest StatusData { get; set; } = new UpdateUserStatusRequest();
-}
-
-public class UpdateUserStatusRequest
-{
-    public bool IsActive { get; set; }
+    [FromBody] public UserStatusRequest StatusData { get; set; } = new UserStatusRequest();
 }
 
 [Route("api/users")]
 public class UpdateStatus : EndpointBaseAsync
     .WithRequest<UpdateStatusRequest>
-    .WithActionResult<int>
+    .WithActionResult<bool>
 {
     private readonly IManageUserService _manageUserService;
 
@@ -32,11 +28,13 @@ public class UpdateStatus : EndpointBaseAsync
     [HttpPatch("{id:int}/status")]
     [SwaggerOperation(
         Summary = "Update user status",
-        Description = "Updates the active status of a user and syncs with Azure AD",
+        Description = "Updates the active status of a user and syncs with Azure AD using simplified request model",
         OperationId = "User.UpdateStatus",
         Tags = new[] { "Users" })
     ]
-    public async override Task<ActionResult<int>> HandleAsync(
+    [SwaggerResponse(200, "User status updated successfully")]
+    [SwaggerResponse(404, "User not found")]
+    public async override Task<ActionResult<bool>> HandleAsync(
         UpdateStatusRequest request,
         CancellationToken cancellationToken = default)
     {

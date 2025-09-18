@@ -37,12 +37,9 @@ public class Batch
 
     public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
 
-    [ForeignKey(nameof(CreatedByUser))]
     public int CreatedBy { get; set; }
 
     // Navigation properties
-    public Project Client { get; set; } = null!;
     public Project Project { get; set; } = null!;
-    public User CreatedByUser { get; set; } = null!;
     public ICollection<Order> Orders { get; set; } = new List<Order>();
 }

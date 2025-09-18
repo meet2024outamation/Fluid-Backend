@@ -11,7 +11,7 @@ namespace Fluid.API.Endpoints.User;
 [Route("api/users")]
 public class Me : EndpointBaseAsync
     .WithoutRequest
-    .WithActionResult<UserEM>
+    .WithActionResult<UserMeResponse>
 {
     private readonly IManageUserService _manageUserService;
     private readonly IUser _currentUser;
@@ -25,15 +25,17 @@ public class Me : EndpointBaseAsync
     [HttpGet("me")]
     [SwaggerOperation(
         Summary = "Get current user information",
-        Description = "Retrieves the current authenticated user's information",
+        Description = "Retrieves the current authenticated user's information with simplified role details",
         OperationId = "User.Me",
         Tags = new[] { "Users" })
     ]
-    public async override Task<ActionResult<UserEM>> HandleAsync(
+    [SwaggerResponse(200, "Current user information", typeof(UserMeResponse))]
+    [SwaggerResponse(404, "User not found")]
+    public async override Task<ActionResult<UserMeResponse>> HandleAsync(
         CancellationToken cancellationToken = default)
     {
         var currentUserId = _currentUser.Id;
-        var result = await _manageUserService.GetUserById(currentUserId);
+        var result = await _manageUserService.GetCurrentUserAsync(currentUserId);
         return result.ToActionResult();
     }
 }

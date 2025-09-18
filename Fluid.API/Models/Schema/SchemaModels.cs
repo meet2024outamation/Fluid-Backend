@@ -84,6 +84,6 @@ public class SchemaListResponse
     public int Version { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
-    public string CreatedByName { get; set; } = string.Empty;
+    public string? CreatedByName { get; set; } = string.Empty;
     public int SchemaFieldCount { get; set; }
 }

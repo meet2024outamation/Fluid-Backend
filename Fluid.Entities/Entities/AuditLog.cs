@@ -1,6 +1,6 @@
+using Fluid.Entities.Enums;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Fluid.Entities.Enums;
 
 namespace Fluid.Entities.Entities;
 
@@ -25,7 +25,6 @@ public class AuditLog
     [Column(TypeName = "jsonb")]
     public string? NewValues { get; set; } // JSON new values
 
-    [ForeignKey(nameof(User))]
     public int? ChangedBy { get; set; }
 
     public DateTime ChangedAt { get; set; } = DateTime.UtcNow;
@@ -37,5 +36,4 @@ public class AuditLog
     public string? UserAgent { get; set; }
 
     // Navigation properties
-    public User? User { get; set; }
 }

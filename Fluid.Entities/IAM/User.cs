@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Fluid.Entities.Entities;
+namespace Fluid.Entities.IAM;
 
 public class User
 {
@@ -38,20 +38,9 @@ public class User
     [NotMapped]
     public string Name => $"{FirstName} {LastName}".Trim();
 
-    // Navigation properties for existing relationships
-    public ICollection<Project> CreatedProjects { get; set; } = new List<Project>();
-    public ICollection<Schema> CreatedSchemas { get; set; } = new List<Schema>();
-    public ICollection<Batch> CreatedBatches { get; set; } = new List<Batch>();
-    public ICollection<Order> AssignedWorkItems { get; set; } = new List<Order>();
-    public ICollection<FieldMapping> CreatedFieldMappings { get; set; } = new List<FieldMapping>();
-    public ICollection<AuditLog> ChangedAuditLogs { get; set; } = new List<AuditLog>();
-    public ICollection<OrderData> VerifiedWorkItemData { get; set; } = new List<OrderData>();
-
-    // Navigation properties for new role system
+    // Navigation properties for IAM context only
     [InverseProperty("User")]
     public virtual ICollection<UserRole> UserRoleUsers { get; set; } = new List<UserRole>();
-
-
 
     // Role-related creation/modification navigation properties
     [InverseProperty("CreatedBy")]

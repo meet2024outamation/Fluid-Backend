@@ -1,8 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Fluid.Entities.Entities;
+namespace Fluid.Entities.IAM;
 
 public class UserRole
 {
@@ -12,8 +12,11 @@ public class UserRole
     public int UserId { get; set; }
 
     public int RoleId { get; set; }
-    public int TenantId { get; set; }
-    public int ProjectId { get; set; }
+
+    [StringLength(40)]
+    public string? TenantId { get; set; }
+
+    public int? ProjectId { get; set; }
 
     [StringLength(20)]
     [Unicode(false)]

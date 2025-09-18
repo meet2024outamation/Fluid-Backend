@@ -52,7 +52,7 @@ public class BatchResponse
     public int InvalidOrders { get; set; }
     public DateTime CreatedAt { get; set; }
     public int CreatedBy { get; set; }
-    public string CreatedByName { get; set; } = string.Empty;
+    public string? CreatedByName { get; set; } = string.Empty;
     public List<BatchValidationResult> ValidationResults { get; set; } = new();
 }
 

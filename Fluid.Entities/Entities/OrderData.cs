@@ -24,7 +24,6 @@ public class OrderData
 
     public bool IsVerified { get; set; } = false;
 
-    [ForeignKey(nameof(VerifiedByUser))]
     public int? VerifiedBy { get; set; }
 
     public DateTime? VerifiedAt { get; set; }
@@ -41,5 +40,4 @@ public class OrderData
     // Navigation properties
     public Order Order { get; set; } = null!;
     public SchemaField SchemaField { get; set; } = null!;
-    public User? VerifiedByUser { get; set; }
 }

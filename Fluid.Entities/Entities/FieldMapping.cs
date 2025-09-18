@@ -27,13 +27,10 @@ public class FieldMapping
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    [ForeignKey(nameof(CreatedByUser))]
     public int CreatedBy { get; set; }
 
     // Navigation properties
-    public Project Client { get; set; } = null!;
     public Project Project { get; set; } = null!;
     public Schema Schema { get; set; } = null!;
-    public User CreatedByUser { get; set; } = null!;
     public SchemaField SchemaField { get; set; } = null!;
 }

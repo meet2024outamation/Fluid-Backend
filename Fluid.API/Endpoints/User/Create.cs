@@ -9,8 +9,8 @@ namespace Fluid.API.Endpoints.User;
 
 [Route("api/users")]
 public class Create : EndpointBaseAsync
-    .WithRequest<UserCM>
-    .WithActionResult<UserEM>
+    .WithRequest<UserRequest>
+    .WithActionResult<UserResponse>
 {
     private readonly IManageUserService _manageUserService;
 
@@ -22,15 +22,18 @@ public class Create : EndpointBaseAsync
     [HttpPost]
     [SwaggerOperation(
         Summary = "Create a new user",
-        Description = "Creates a new user with Azure AD integration and role assignment",
+        Description = "Creates a new user with Azure AD integration and role assignment using simplified request/response models",
         OperationId = "User.Create",
         Tags = new[] { "Users" })
     ]
-    public async override Task<ActionResult<UserEM>> HandleAsync(
-        UserCM request,
+    [SwaggerResponse(201, "User created successfully", typeof(UserResponse))]
+    [SwaggerResponse(400, "Invalid request")]
+    [SwaggerResponse(409, "Email already exists")]
+    public async override Task<ActionResult<UserResponse>> HandleAsync(
+        UserRequest request,
         CancellationToken cancellationToken = default)
     {
-        var result = await _manageUserService.CreateUser(request);
+        var result = await _manageUserService.CreateUserAsync(request);
         return result.ToActionResult();
     }
 }

@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Fluid.Entities.Entities;
 
@@ -7,7 +6,8 @@ public class Project
 {
     [Key]
     public int Id { get; set; }
-
+    [Required]
+    public string TenantId { get; set; } = string.Empty;
     [Required]
     [StringLength(255)]
     public string Name { get; set; } = string.Empty;
@@ -23,11 +23,9 @@ public class Project
 
     public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
 
-    [ForeignKey(nameof(CreatedByUser))]
     public int CreatedBy { get; set; }
 
     // Navigation properties
-    public User CreatedByUser { get; set; } = null!;
     public ICollection<ProjectSchema> ProjectSchemas { get; set; } = new List<ProjectSchema>();
     public ICollection<Batch> Batches { get; set; } = new List<Batch>();
     public ICollection<Order> Orders { get; set; } = new List<Order>();

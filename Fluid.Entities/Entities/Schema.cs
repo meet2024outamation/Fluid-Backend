@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Fluid.Entities.Entities;
 
@@ -26,11 +25,9 @@ public class Schema
 
     public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
 
-    [ForeignKey(nameof(CreatedByUser))]
     public int CreatedBy { get; set; }
 
     // Navigation properties
-    public User CreatedByUser { get; set; } = null!;
     public ICollection<ProjectSchema> ProjectSchemas { get; set; } = new List<ProjectSchema>();
     public ICollection<FieldMapping> FieldMappings { get; set; } = new List<FieldMapping>();
     public ICollection<SchemaField> SchemaFields { get; set; } = new List<SchemaField>();

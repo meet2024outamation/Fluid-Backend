@@ -10,13 +10,13 @@ namespace Fluid.API.Endpoints.User;
 public class UpdateUserRequest
 {
     [FromRoute] public int Id { get; set; }
-    [FromBody] public UserEM UserData { get; set; } = new UserEM();
+    [FromBody] public UserRequest UserData { get; set; } = new UserRequest();
 }
 
 [Route("api/users")]
 public class Update : EndpointBaseAsync
     .WithRequest<UpdateUserRequest>
-    .WithActionResult<UserCM>
+    .WithActionResult<UserResponse>
 {
     private readonly IManageUserService _manageUserService;
 
@@ -28,18 +28,19 @@ public class Update : EndpointBaseAsync
     [HttpPut("{id:int}")]
     [SwaggerOperation(
         Summary = "Update user by ID",
-        Description = "Updates an existing user's information",
+        Description = "Updates an existing user's information using simplified request/response models",
         OperationId = "User.Update",
         Tags = new[] { "Users" })
     ]
-    public async override Task<ActionResult<UserCM>> HandleAsync(
+    [SwaggerResponse(200, "User updated successfully", typeof(UserResponse))]
+    [SwaggerResponse(400, "Invalid request")]
+    [SwaggerResponse(404, "User not found")]
+    [SwaggerResponse(409, "Email already exists")]
+    public async override Task<ActionResult<UserResponse>> HandleAsync(
         UpdateUserRequest request,
         CancellationToken cancellationToken = default)
     {
-        // Set the ID from the route to the user data
-        request.UserData.Id = request.Id;
-        
-        var result = await _manageUserService.UpdateUser(request.UserData);
+        var result = await _manageUserService.UpdateUserAsync(request.Id, request.UserData);
         return result.ToActionResult();
     }
 }

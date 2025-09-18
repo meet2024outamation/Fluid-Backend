@@ -175,7 +175,7 @@ public class BatchService : IBatchService
         {
             var batches = await _context.Batches
                 .Include(b => b.Project)
-                .Include(b => b.CreatedByUser)
+                //.Include(b => b.CreatedByUser)
                 .ToListAsync();
 
             var batchListResponses = batches.Select(b => new BatchListResponse
@@ -190,7 +190,7 @@ public class BatchService : IBatchService
                 ValidOrders = b.Orders.Count(w => w.Status != OrderStatus.ValidationError),
                 InvalidOrders = b.Orders.Count(w => w.Status == OrderStatus.ValidationError),
                 CreatedAt = b.CreatedAt,
-                CreatedByName = b.CreatedByUser.Name
+                //CreatedByName = b.CreatedByUser.Name
             })
             .OrderByDescending(b => b.CreatedAt)
             .ToList();
@@ -211,7 +211,7 @@ public class BatchService : IBatchService
         {
             var batches = await _context.Batches
                 .Include(b => b.Project)
-                .Include(b => b.CreatedByUser)
+                //.Include(b => b.CreatedByUser)
                 .Where(b => b.ProjectId == projectId)
                 .ToListAsync();
 
@@ -226,7 +226,7 @@ public class BatchService : IBatchService
                 ValidOrders = b.Orders.Count(w => w.Status != OrderStatus.ValidationError),
                 InvalidOrders = b.Orders.Count(w => w.Status == OrderStatus.ValidationError),
                 CreatedAt = b.CreatedAt,
-                CreatedByName = b.CreatedByUser.Name
+                //CreatedByName = b.CreatedByUser.Name
             })
             .OrderByDescending(b => b.CreatedAt)
             .ToList();
@@ -247,7 +247,7 @@ public class BatchService : IBatchService
         {
             var batch = await _context.Batches
                 .Include(b => b.Project)
-                .Include(b => b.CreatedByUser)
+                //.Include(b => b.CreatedByUser)
                 .FirstOrDefaultAsync(b => b.Id == id);
 
             if (batch == null)
@@ -442,7 +442,7 @@ public class BatchService : IBatchService
     {
         return await _context.Batches
             .Include(b => b.Project)
-            .Include(b => b.CreatedByUser)
+            //.Include(b => b.CreatedByUser)
             .Include(b => b.Orders)
             .FirstOrDefaultAsync(b => b.Id == batchId);
     }
@@ -918,7 +918,7 @@ public class BatchService : IBatchService
             InvalidOrders = invalidOrders,
             CreatedAt = batch.CreatedAt,
             CreatedBy = batch.CreatedBy,
-            CreatedByName = batch.CreatedByUser.Name,
+            //CreatedByName = batch.CreatedByUser.Name,
             ValidationResults = validationResults
         };
     }

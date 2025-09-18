@@ -27,7 +27,7 @@ public class OrderService : IOrderService
         {
             // Validate order exists
             var order = await _context.Orders
-                .Include(o => o.AssignedUser)
+                //.Include(o => o.AssignedUser)
                 .FirstOrDefaultAsync(o => o.Id == request.OrderId);
 
             if (order == null)
@@ -124,7 +124,7 @@ public class OrderService : IOrderService
             var orderData = await _context.OrderData
                 .Include(od => od.Order)
                 .Include(od => od.SchemaField)
-                .Include(od => od.VerifiedByUser)
+                //.Include(od => od.VerifiedByUser)
                 .FirstOrDefaultAsync(od => od.Id == request.OrderDataId);
 
             if (orderData == null)
@@ -282,7 +282,7 @@ public class OrderService : IOrderService
             var query = _context.Orders
                 .Include(o => o.Batch)
                 .Include(o => o.Project)
-                .Include(o => o.AssignedUser)
+                //.Include(o => o.AssignedUser)
                 .Include(o => o.Documents)
                 .Include(o => o.OrderData)
                 .ThenInclude(od => od.SchemaField)
@@ -363,7 +363,11 @@ public class OrderService : IOrderService
                 .Skip(skip)
                 .Take(request.PageSize)
                 .ToListAsync();
+            var userIds = orders.Select(o => o.AssignedTo).Where(id => id != null).Distinct().ToList();
 
+            var users = await _iamContext.Users
+                .Where(u => userIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.Name);
             // Map to response DTOs
             var orderResponses = orders.Select(o => new OrderListResponse
             {
@@ -375,7 +379,9 @@ public class OrderService : IOrderService
                 Status = o.Status.ToString(),
                 Priority = o.Priority,
                 AssignedTo = o.AssignedTo,
-                AssignedUserName = o.AssignedUser?.Name,
+                AssignedUserName = o.AssignedTo != null && users.ContainsKey(o.AssignedTo.Value)
+                                    ? users[o.AssignedTo.Value]
+                                    : null,
                 AssignedAt = o.AssignedAt,
                 StartedAt = o.StartedAt,
                 CompletedAt = o.CompletedAt,
