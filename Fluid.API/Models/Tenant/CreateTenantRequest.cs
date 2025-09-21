@@ -18,6 +18,6 @@ namespace Fluid.API.Models.Tenant
         [StringLength(100)]
         public string? DatabaseName { get; set; }
 
-        public string? Properties { get; set; }
+        public string? Properties { get; set; } = null;
     }
 }

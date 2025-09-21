@@ -6,7 +6,7 @@ namespace Fluid.API.Authorization;
 public static class ApplicationRoles
 {
     public const string ProductOwner = "Product Owner";
-    public const string TenantAdmin = "TenantAdmin";
+    public const string TenantAdmin = "Tenant Admin";
     public const string Manager = "Manager";
     public const string Operator = "Operator";
 }

@@ -1,9 +1,9 @@
 using Ardalis.ApiEndpoints;
+using Fluid.API.Infrastructure.Interfaces;
+using Fluid.API.Models.Schema;
 using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
-using Fluid.API.Infrastructure.Interfaces;
-using Fluid.API.Models.Schema;
 
 namespace Fluid.API.Endpoints.Schema;
 

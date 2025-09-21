@@ -7,19 +7,32 @@ namespace Fluid.Entities.Context;
 
 public class FluidDbContext : DbContext
 {
-    public FluidDbContext(DbContextOptions<FluidDbContext> options) : base(options)
+    private readonly Tenant _tenantInfo;
+
+    public FluidDbContext(DbContextOptions<FluidDbContext> options, Tenant tenantInfo)
+        : base(options)
     {
+        _tenantInfo = tenantInfo ?? throw new ArgumentNullException(nameof(tenantInfo));
     }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
+        // Apply tenant-specific connection string
+        if (!string.IsNullOrEmpty(_tenantInfo?.ConnectionString))
+        {
+            optionsBuilder.UseNpgsql(_tenantInfo.ConnectionString);
+        }
+
+        // Common settings
         optionsBuilder.UseSnakeCaseNamingConvention();
+
         base.OnConfiguring(optionsBuilder);
     }
 
     // DbSets for tenant-specific entities only
     public DbSet<Project> Projects { get; set; }
-    public DbSet<Schema> Schemas { get; set; }
-    public DbSet<SchemaField> SchemaFields { get; set; }
+    public DbSet<Entities.Schema> Schemas { get; set; }
+    public DbSet<Entities.SchemaField> SchemaFields { get; set; }
     public DbSet<ProjectSchema> ProjectSchemas { get; set; }
     public DbSet<Batch> Batches { get; set; }
     public DbSet<Order> Orders { get; set; }
@@ -48,7 +61,7 @@ public class FluidDbContext : DbContext
         });
 
         // Configure Schema entity
-        modelBuilder.Entity<Schema>(entity =>
+        modelBuilder.Entity<Entities.Schema>(entity =>
         {
             //entity.Property(e => e.Id).ValueGeneratedOnAdd();
             //entity.HasOne(e => e.CreatedByUser)
@@ -58,7 +71,7 @@ public class FluidDbContext : DbContext
         });
 
         // Configure SchemaField entity
-        modelBuilder.Entity<SchemaField>(entity =>
+        modelBuilder.Entity<Entities.SchemaField>(entity =>
         {
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.HasIndex(e => new { e.SchemaId, e.FieldName }).IsUnique();
@@ -202,6 +215,8 @@ public class FluidIAMDbContext : EFCoreStoreDbContext<Tenant>
     public DbSet<Role> Roles { get; set; }
     public DbSet<UserRole> UserRoles { get; set; }
     public DbSet<Tenant> Tenants { get; set; }
+    public DbSet<IAM.Schema> Schemas { get; set; }
+    public DbSet<IAM.SchemaField> SchemaFields { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -278,6 +293,17 @@ public class FluidIAMDbContext : EFCoreStoreDbContext<Tenant>
                   .WithMany(u => u.UserRoleModifiedBies)
                   .HasForeignKey(e => e.ModifiedById)
                   .OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<IAM.SchemaField>(entity =>
+        {
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.HasIndex(e => new { e.SchemaId, e.FieldName }).IsUnique();
+            entity.HasIndex(e => new { e.SchemaId, e.DisplayOrder }).IsUnique();
+
+            entity.HasOne(e => e.Schema)
+                  .WithMany(s => s.SchemaFields)
+                  .HasForeignKey(e => e.SchemaId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

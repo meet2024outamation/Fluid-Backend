@@ -25,7 +25,7 @@ public static class MigrationHelper
 
             // Get tenant store
             var tenantStore = scope.ServiceProvider.GetRequiredService<IMultiTenantStore<Tenant>>();
-            
+
             logger.LogInformation("?? Retrieving all active tenants...");
             var tenants = await tenantStore.GetAllAsync();
 
@@ -44,12 +44,12 @@ public static class MigrationHelper
             {
                 try
                 {
-                    logger.LogInformation("?? Processing tenant: {TenantName} ({TenantId})", 
+                    logger.LogInformation("?? Processing tenant: {TenantName} ({TenantId})",
                         tenant.Name, tenant.Identifier);
 
                     if (string.IsNullOrEmpty(tenant.ConnectionString))
                     {
-                        logger.LogWarning("?? Tenant {TenantName} has no connection string, skipping...", 
+                        logger.LogWarning("?? Tenant {TenantName} has no connection string, skipping...",
                             tenant.Name);
                         continue;
                     }
@@ -60,14 +60,14 @@ public static class MigrationHelper
                         .UseSnakeCaseNamingConvention()
                         .Options;
 
-                    using var tenantContext = new FluidDbContext(dbOptions);
+                    using var tenantContext = new FluidDbContext(dbOptions, tenant);
 
                     // Check for pending migrations
                     var pendingMigrations = await tenantContext.Database.GetPendingMigrationsAsync();
-                    
+
                     if (pendingMigrations.Any())
                     {
-                        logger.LogInformation("?? Applying {MigrationCount} pending migrations for tenant: {TenantName}", 
+                        logger.LogInformation("?? Applying {MigrationCount} pending migrations for tenant: {TenantName}",
                             pendingMigrations.Count(), tenant.Name);
 
                         // Log migration names for debugging
@@ -78,8 +78,8 @@ public static class MigrationHelper
 
                         // Apply migrations
                         await tenantContext.Database.MigrateAsync();
-                        
-                        logger.LogInformation("? Successfully applied migrations for tenant: {TenantName}", 
+
+                        logger.LogInformation("? Successfully applied migrations for tenant: {TenantName}",
                             tenant.Name);
                         successCount++;
                     }
@@ -91,7 +91,7 @@ public static class MigrationHelper
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "? Failed to apply migrations for tenant: {TenantName} - {ErrorMessage}", 
+                    logger.LogError(ex, "? Failed to apply migrations for tenant: {TenantName} - {ErrorMessage}",
                         tenant.Name, ex.Message);
                     errorCount++;
 
@@ -103,7 +103,7 @@ public static class MigrationHelper
             // Summary report
             logger.LogInformation("?? Migration process completed:");
             logger.LogInformation("   ? Successful: {SuccessCount} tenants", successCount);
-            
+
             if (errorCount > 0)
             {
                 logger.LogWarning("   ? Failed: {ErrorCount} tenants", errorCount);
@@ -129,54 +129,54 @@ public static class MigrationHelper
     /// <param name="tenantName">Tenant name for logging</param>
     /// <param name="logger">Logger instance</param>
     /// <returns>True if database exists or was created successfully</returns>
-    public static async Task<bool> EnsureTenantDatabaseExistsAsync(
-        string connectionString, 
-        string tenantName, 
-        ILogger logger)
-    {
-        try
-        {
-            var dbOptions = new DbContextOptionsBuilder<FluidDbContext>()
-                .UseNpgsql(connectionString)
-                .UseSnakeCaseNamingConvention()
-                .Options;
+    //public static async Task<bool> EnsureTenantDatabaseExistsAsync(
+    //    string connectionString,
+    //    string tenantName,
+    //    ILogger logger)
+    //{
+    //    try
+    //    {
+    //        var dbOptions = new DbContextOptionsBuilder<FluidDbContext>()
+    //            .UseNpgsql(connectionString)
+    //            .UseSnakeCaseNamingConvention()
+    //            .Options;
 
-            using var context = new FluidDbContext(dbOptions);
+    //        using var context = new FluidDbContext(dbOptions);
 
-            logger.LogInformation("?? Checking database existence for tenant: {TenantName}", tenantName);
+    //        logger.LogInformation("?? Checking database existence for tenant: {TenantName}", tenantName);
 
-            // This will create the database if it doesn't exist
-            var created = await context.Database.EnsureCreatedAsync();
+    //        // This will create the database if it doesn't exist
+    //        var created = await context.Database.EnsureCreatedAsync();
 
-            if (created)
-            {
-                logger.LogInformation("?? Created new database for tenant: {TenantName}", tenantName);
-            }
-            else
-            {
-                logger.LogInformation("? Database already exists for tenant: {TenantName}", tenantName);
-            }
+    //        if (created)
+    //        {
+    //            logger.LogInformation("?? Created new database for tenant: {TenantName}", tenantName);
+    //        }
+    //        else
+    //        {
+    //            logger.LogInformation("? Database already exists for tenant: {TenantName}", tenantName);
+    //        }
 
-            return true;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "? Failed to ensure database exists for tenant: {TenantName} - {ErrorMessage}", 
-                tenantName, ex.Message);
-            return false;
-        }
-    }
+    //        return true;
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        logger.LogError(ex, "? Failed to ensure database exists for tenant: {TenantName} - {ErrorMessage}",
+    //            tenantName, ex.Message);
+    //        return false;
+    //    }
+    //}
 
     /// <summary>
     /// Applies migrations to a specific tenant by tenant identifier
     /// </summary>
     /// <param name="services">Service provider</param>
-    /// <param name="tenantIdentifier">Tenant identifier</param>
+    /// <param name="tenantId">Tenant identifier</param>
     /// <param name="logger">Logger instance</param>
     /// <returns>True if migrations were applied successfully</returns>
     public static async Task<bool> ApplyMigrationsForTenantAsync(
-        IServiceProvider services, 
-        string tenantIdentifier, 
+        IServiceProvider services,
+        string tenantId,
         ILogger logger)
     {
         try
@@ -184,16 +184,16 @@ public static class MigrationHelper
             using var scope = services.CreateScope();
             var tenantStore = scope.ServiceProvider.GetRequiredService<IMultiTenantStore<Tenant>>();
 
-            var tenant = await tenantStore.TryGetAsync(tenantIdentifier);
+            var tenant = await tenantStore.TryGetAsync(tenantId);
             if (tenant == null)
             {
-                logger.LogWarning("?? Tenant not found: {TenantIdentifier}", tenantIdentifier);
+                logger.LogWarning("?? Tenant not found: {TenantId}", tenantId);
                 return false;
             }
 
             if (string.IsNullOrEmpty(tenant.ConnectionString))
             {
-                logger.LogWarning("?? Tenant {TenantIdentifier} has no connection string", tenantIdentifier);
+                logger.LogWarning("?? Tenant {TenantId} has no connection string", tenantId);
                 return false;
             }
 
@@ -204,10 +204,10 @@ public static class MigrationHelper
                 .UseSnakeCaseNamingConvention()
                 .Options;
 
-            using var context = new FluidDbContext(dbOptions);
+            using var context = new FluidDbContext(dbOptions, tenant);
 
             var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
-            
+
             if (pendingMigrations.Any())
             {
                 logger.LogInformation("?? Applying {MigrationCount} pending migrations", pendingMigrations.Count());
@@ -223,8 +223,8 @@ public static class MigrationHelper
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "? Failed to apply migrations for tenant {TenantIdentifier}: {ErrorMessage}", 
-                tenantIdentifier, ex.Message);
+            logger.LogError(ex, "? Failed to apply migrations for tenant {TenantId}: {ErrorMessage}",
+                tenantId, ex.Message);
             return false;
         }
     }

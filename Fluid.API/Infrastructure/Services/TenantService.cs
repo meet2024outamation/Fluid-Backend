@@ -90,17 +90,17 @@ public class TenantService : ITenantService
 
             if (tenant == null)
             {
-                _logger.LogWarning("Tenant with identifier {TenantIdentifier} not found or inactive", identifier);
+                _logger.LogWarning("Tenant with identifier {TenantId} not found or inactive", identifier);
                 return Result<Tenant>.NotFound();
             }
 
-            _logger.LogInformation("Retrieved tenant {TenantId} ({TenantName}) by identifier {TenantIdentifier}",
+            _logger.LogInformation("Retrieved tenant {TenantId} ({TenantName}) by identifier {TenantId}",
                 tenant.Id, tenant.Name, identifier);
             return Result<Tenant>.Success(tenant, "Tenant retrieved successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving tenant with identifier {TenantIdentifier}", identifier);
+            _logger.LogError(ex, "Error retrieving tenant with identifier {TenantId}", identifier);
             return Result<Tenant>.Error("An error occurred while retrieving the tenant.");
         }
     }
@@ -145,7 +145,7 @@ public class TenantService : ITenantService
             await _iamContext.SaveChangesAsync();
 
             // Create the tenant database
-            var databaseResult = await CreateTenantDatabaseAsync(tenant.ConnectionString);
+            var databaseResult = await CreateTenantDatabaseAsync(tenant);
             if (!databaseResult.IsSuccess)
             {
                 // Rollback tenant creation if database creation fails
@@ -162,7 +162,7 @@ public class TenantService : ITenantService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating tenant {TenantIdentifier}", request.Identifier);
+            _logger.LogError(ex, "Error creating tenant {TenantId}", request.Identifier);
             return Result<Tenant>.Error("An error occurred while creating the tenant.");
         }
     }
@@ -254,15 +254,15 @@ public class TenantService : ITenantService
         }
     }
 
-    public async Task<Result<bool>> CreateTenantDatabaseAsync(string connectionString)
+    public async Task<Result<bool>> CreateTenantDatabaseAsync(Tenant tenant)
     {
         try
         {
             var options = new DbContextOptionsBuilder<Fluid.Entities.Context.FluidDbContext>()
-                .UseNpgsql(connectionString)
+                .UseNpgsql(tenant.ConnectionString)
                 .Options;
 
-            using var context = new Fluid.Entities.Context.FluidDbContext(options);
+            using var context = new Fluid.Entities.Context.FluidDbContext(options, tenant);
 
             // Create database if it doesn't exist
             await context.Database.EnsureCreatedAsync();
@@ -279,7 +279,7 @@ public class TenantService : ITenantService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating tenant database with connection string: {ConnectionString}", connectionString);
+            _logger.LogError(ex, "Error creating tenant database with connection string: {ConnectionString}", tenant.ConnectionString);
             return Result<bool>.Error("An error occurred while creating the tenant database.");
         }
     }

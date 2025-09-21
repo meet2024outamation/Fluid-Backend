@@ -67,7 +67,7 @@ namespace Fluid.API.Models.User
         public class ProjectRole
         {
             public string TenantId { get; set; } = string.Empty;
-            public int ProjectId { get; set; }
+            public int? ProjectId { get; set; } = null;
             public int RoleId { get; set; }
         }
         /// <summary>

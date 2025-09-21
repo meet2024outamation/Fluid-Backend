@@ -1,0 +1,97 @@
+### Get all projects grouped by tenants (Main endpoint)
+GET {{host}}/api/projects
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Get all projects grouped by tenants (Explicit endpoint)
+GET {{host}}/api/projects/by-tenants
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Get simple list of projects (Backward compatibility)
+GET {{host}}/api/projects/simple
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Variables for testing
+@host = https://localhost:7253
+@authToken = your-jwt-token-here
+
+### Expected Response for Tenant-based listing:
+# {
+#   "tenants": [
+#     {
+#       "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+#       "tenantName": "Company ABC",
+#       "tenantIdentifier": "company-abc",
+#       "description": "Main company tenant",
+#       "isActive": true,
+#       "projectCount": 3,
+#       "projects": [
+#         {
+#           "projectId": 1,
+#           "projectName": "Project Alpha",
+#           "projectCode": "ALPHA",
+#           "isActive": true,
+#           "createdAt": "2024-01-15T10:30:00Z",
+#           "updatedAt": "2024-01-20T14:22:00Z",
+#           "createdBy": 1
+#         },
+#         {
+#           "projectId": 2,
+#           "projectName": "Project Beta",
+#           "projectCode": "BETA",
+#           "isActive": true,
+#           "createdAt": "2024-02-10T09:15:00Z",
+#           "updatedAt": "2024-02-15T16:45:00Z",
+#           "createdBy": 2
+#         }
+#       ]
+#     },
+#     {
+#       "tenantId": "660f9500-f30c-52e5-b827-557766551111",
+#       "tenantName": "Company XYZ", 
+#       "tenantIdentifier": "company-xyz",
+#       "description": "Secondary tenant",
+#       "isActive": true,
+#       "projectCount": 1,
+#       "projects": [
+#         {
+#           "projectId": 3,
+#           "projectName": "Project Gamma",
+#           "projectCode": "GAMMA",
+#           "isActive": true,
+#           "createdAt": "2024-03-01T11:20:00Z",
+#           "updatedAt": "2024-03-05T13:30:00Z",
+#           "createdBy": 3
+#         }
+#       ]
+#     }
+#   ],
+#   "totalTenants": 2,
+#   "totalProjects": 3
+# }
+
+### Expected Response for Simple listing:
+# [
+#   {
+#     "id": 1,
+#     "name": "Project Alpha",
+#     "code": "ALPHA",
+#     "isActive": true,
+#     "createdAt": "2024-01-15T10:30:00Z"
+#   },
+#   {
+#     "id": 2,
+#     "name": "Project Beta", 
+#     "code": "BETA",
+#     "isActive": true,
+#     "createdAt": "2024-02-10T09:15:00Z"
+#   }
+# ]

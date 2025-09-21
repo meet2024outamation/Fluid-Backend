@@ -1,4 +1,5 @@
-﻿using Fluid.API.Infrastructure.Interfaces;
+﻿using Fluid.API.Authorization;
+using Fluid.API.Infrastructure.Interfaces;
 using Fluid.Entities.Context;
 using Fluid.Entities.IAM;
 using Microsoft.EntityFrameworkCore;
@@ -155,10 +156,10 @@ public class ManageUserService : IManageUserService
                     .Select(async ur => new ProjectRoleResponse
                     {
                         TenantId = ur.TenantId,
-                        ProjectId = ur.ProjectId.Value,
+                        ProjectId = ur.ProjectId ?? 0, // Handle null ProjectId for Product Owner and Tenant Owner
                         RoleId = ur.Role.Id,
                         TenantName = ur.Tenant?.Name,
-                        ProjectName = await GetProjectNameAsync(ur.ProjectId.Value),
+                        ProjectName = ur.ProjectId.HasValue ? await GetProjectNameAsync(ur.ProjectId.Value) : null,
                         RoleName = ur.Role.Name
                     }))).ToList()
             };
@@ -218,6 +219,12 @@ public class ManageUserService : IManageUserService
     {
         try
         {
+            // Return null for invalid project IDs (used for Product Owner and Tenant Owner roles)
+            if (projectId <= 0)
+            {
+                return null;
+            }
+
             var project = await _context.Projects
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == projectId);
@@ -227,7 +234,7 @@ public class ManageUserService : IManageUserService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Could not retrieve project name for ProjectId: {ProjectId}", projectId);
-            return $"Project {projectId}";
+            return projectId > 0 ? $"Project {projectId}" : null;
         }
     }
 
@@ -598,14 +605,16 @@ public class ManageUserService : IManageUserService
             // Check for Product Owner role (global role with null tenant and project)
             var isProductOwner = user.UserRoleUsers
                 .Any(ur => ur.Role.IsActive &&
-                          ur.Role.Name == "Product Owner" &&
+                          ur.Role.Name == ApplicationRoles.ProductOwner &&
                           ur.TenantId == null &&
                           ur.ProjectId == null);
+
+            _logger.LogDebug("User {UserIdentifier} Product Owner status: {IsProductOwner}", userIdentifier, isProductOwner);
 
             // Get Tenant Owner roles (roles with null project but specific tenant)
             var tenantOwnerRoles = user.UserRoleUsers
                 .Where(ur => ur.Role.IsActive &&
-                            ur.Role.Name == "Tenant Owner" &&
+                            ur.Role.Name == ApplicationRoles.TenantAdmin &&
                             ur.ProjectId == null &&
                             ur.TenantId != null &&
                             ur.Tenant != null &&
@@ -617,12 +626,18 @@ public class ManageUserService : IManageUserService
                 .Distinct()
                 .ToList();
 
+            _logger.LogDebug("User {UserIdentifier} has Tenant Owner access to {TenantCount} tenants", userIdentifier, tenantOwnerTenantIds.Count);
+
             // Group user roles by tenant for regular project-based access
+            // Only include roles that have both tenant and project (exclude Product Owner and Tenant Owner)
             var tenantRoles = user.UserRoleUsers
                 .Where(ur => ur.Role.IsActive &&
                             ur.Tenant != null &&
                             ur.Tenant.IsActive &&
-                            ur.ProjectId != null) // Only project-specific roles
+                            ur.ProjectId != null &&
+                            ur.ProjectId > 0 && // Ensure valid project ID
+                            ur.Role.Name != ApplicationRoles.ProductOwner && // Exclude Product Owner roles
+                            ur.Role.Name != ApplicationRoles.TenantAdmin) // Exclude Tenant Owner roles
                 .GroupBy(ur => ur.Tenant!)
                 .ToList();
 
@@ -634,7 +649,12 @@ public class ManageUserService : IManageUserService
                 var rolesInTenant = tenantGroup.ToList();
 
                 // Get projects accessible to this user in this tenant
-                var projectIds = rolesInTenant.Select(ur => ur.ProjectId).Distinct().ToList();
+                var projectIds = rolesInTenant
+                    .Where(ur => ur.ProjectId.HasValue && ur.ProjectId.Value > 0)
+                    .Select(ur => ur.ProjectId!.Value)
+                    .Distinct()
+                    .ToList();
+
                 var accessibleProjects = new List<Fluid.API.Models.User.AccessibleProject>();
 
                 if (projectIds.Any())
@@ -646,7 +666,7 @@ public class ManageUserService : IManageUserService
                             .UseNpgsql(tenant.ConnectionString)
                             .Options;
 
-                        using var tenantContext = new FluidDbContext(tenantDbOptions);
+                        using var tenantContext = new FluidDbContext(tenantDbOptions, tenant);
 
                         var projects = await tenantContext.Projects
                             .Where(p => projectIds.Contains(p.Id) && p.IsActive)
@@ -672,6 +692,8 @@ public class ManageUserService : IManageUserService
                                 CreatedAt = project.CreatedAt
                             };
                         }).ToList();
+
+                        _logger.LogDebug("Retrieved {ProjectCount} projects for tenant {TenantName}", projects.Count, tenant.Name);
                     }
                     catch (Exception ex)
                     {
@@ -700,7 +722,7 @@ public class ManageUserService : IManageUserService
                 UserName = user.Name,
                 Email = user.Email,
                 IsProductOwner = isProductOwner,
-                TenantOwnerTenantIds = tenantOwnerTenantIds,
+                TenantAdminTenantIds = tenantOwnerTenantIds,
                 Tenants = accessibleTenants.OrderBy(t => t.TenantName).ToList()
             };
 

@@ -12,6 +12,6 @@ namespace Fluid.API.Infrastructure.Interfaces
         Task<Result<Tenant>> CreateTenantAsync(CreateTenantRequest tenant);
         Task<Result<Tenant>> UpdateTenantAsync(Tenant tenant);
         Task<Result<bool>> DeleteTenantAsync(string id);
-        Task<Result<bool>> CreateTenantDatabaseAsync(string connectionString);
+        Task<Result<bool>> CreateTenantDatabaseAsync(Tenant tenant);
     }
 }

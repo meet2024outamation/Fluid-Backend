@@ -1,6 +1,8 @@
 using Ardalis.ApiEndpoints;
+using Fluid.API.Authorization;
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Models.Tenant;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
@@ -8,7 +10,7 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace Fluid.API.Endpoints.Tenant;
 
 [Route("api/tenants")]
-//[Authorize(Policy = AuthorizationPolicies.ProductOwnerPolicy)]
+[Authorize(Policy = AuthorizationPolicies.ProductOwnerPolicy)]
 public class Create : EndpointBaseAsync.WithRequest<CreateTenantRequest>.WithActionResult<Entities.IAM.Tenant>
 {
     private readonly ITenantService _tenantService;

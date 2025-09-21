@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Fluid.API.Models.User;
 
 /// <summary>
@@ -10,19 +8,19 @@ public class AccessibleTenantsResponse
     public int UserId { get; set; }
     public string UserName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// True if user has Product Owner role with global access (null tenant and project)
     /// When true, user gets immediate access to User Management + Tenant Management without tenant selection
     /// </summary>
     public bool IsProductOwner { get; set; }
-    
+
     /// <summary>
     /// List of tenant IDs where user has Tenant Owner role (null project but specific tenant)
     /// These tenants appear in tenant selection screen for tenant-level management
     /// </summary>
-    public List<string> TenantOwnerTenantIds { get; set; } = new List<string>();
-    
+    public List<string> TenantAdminTenantIds { get; set; } = new List<string>();
+
     /// <summary>
     /// Regular tenant access with project-specific roles
     /// </summary>

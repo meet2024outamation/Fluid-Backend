@@ -15,7 +15,7 @@ public class ApplyTenantMigrationsRequest
     /// <summary>
     /// Tenant identifier for which to apply migrations
     /// </summary>
-    public string TenantIdentifier { get; set; } = string.Empty;
+    public string TenantId { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -51,22 +51,22 @@ public class ApplyTenantMigrations : EndpointBaseAsync
         ApplyTenantMigrationsRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(request.TenantIdentifier))
+        if (string.IsNullOrWhiteSpace(request.TenantId))
         {
             return BadRequest("Tenant identifier is required");
         }
 
         try
         {
-            _logger.LogInformation("?? Manual migration process initiated for tenant: {TenantIdentifier}", 
-                request.TenantIdentifier);
+            _logger.LogInformation("?? Manual migration process initiated for tenant: {TenantId}",
+                request.TenantId);
 
             var startTime = DateTime.UtcNow;
 
             // Apply migrations to specific tenant
             var success = await MigrationHelper.ApplyMigrationsForTenantAsync(
-                HttpContext.RequestServices, 
-                request.TenantIdentifier, 
+                HttpContext.RequestServices,
+                request.TenantId,
                 _logger);
 
             var endTime = DateTime.UtcNow;
@@ -77,15 +77,15 @@ public class ApplyTenantMigrations : EndpointBaseAsync
                 var result = new MigrationResult
                 {
                     Success = true,
-                    Message = $"Migrations applied successfully to tenant: {request.TenantIdentifier}",
+                    Message = $"Migrations applied successfully to tenant: {request.TenantId}",
                     StartTime = startTime,
                     EndTime = endTime,
                     Duration = duration,
                     ProcessedAt = DateTime.UtcNow
                 };
 
-                _logger.LogInformation("? Manual migration process completed successfully for tenant {TenantIdentifier} in {Duration}", 
-                    request.TenantIdentifier, duration.ToString(@"mm\:ss\.fff"));
+                _logger.LogInformation("? Manual migration process completed successfully for tenant {TenantId} in {Duration}",
+                    request.TenantId, duration.ToString(@"mm\:ss\.fff"));
 
                 return Ok(result);
             }
@@ -94,7 +94,7 @@ public class ApplyTenantMigrations : EndpointBaseAsync
                 var result = new MigrationResult
                 {
                     Success = false,
-                    Message = $"Failed to apply migrations to tenant: {request.TenantIdentifier}. Tenant may not exist or have no connection string.",
+                    Message = $"Failed to apply migrations to tenant: {request.TenantId}. Tenant may not exist or have no connection string.",
                     StartTime = startTime,
                     EndTime = endTime,
                     Duration = duration,
@@ -106,13 +106,13 @@ public class ApplyTenantMigrations : EndpointBaseAsync
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "? Manual migration process failed for tenant {TenantIdentifier}: {ErrorMessage}", 
-                request.TenantIdentifier, ex.Message);
+            _logger.LogError(ex, "? Manual migration process failed for tenant {TenantId}: {ErrorMessage}",
+                request.TenantId, ex.Message);
 
             var result = new MigrationResult
             {
                 Success = false,
-                Message = $"Migration process failed for tenant {request.TenantIdentifier}: {ex.Message}",
+                Message = $"Migration process failed for tenant {request.TenantId}: {ex.Message}",
                 StartTime = DateTime.UtcNow,
                 EndTime = DateTime.UtcNow,
                 Duration = TimeSpan.Zero,

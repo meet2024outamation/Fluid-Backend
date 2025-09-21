@@ -10,7 +10,7 @@ namespace Fluid.API.Endpoints.Project;
 [Route("api/projects")]
 public class List : EndpointBaseAsync
     .WithoutRequest
-    .WithActionResult<List<ProjectListResponse>>
+    .WithActionResult<TenantProjectsResponse>
 {
     private readonly IProjectService _projectService;
 
@@ -21,15 +21,17 @@ public class List : EndpointBaseAsync
 
     [HttpGet]
     [SwaggerOperation(
-        Summary = "Get all projects",
-        Description = "Retrieves a list of all projects in the system",
+        Summary = "Get all projects grouped by tenants",
+        Description = "Retrieves all projects organized by their respective tenants with tenant information",
         OperationId = "Project.List",
         Tags = new[] { "Projects" })
     ]
-    public async override Task<ActionResult<List<ProjectListResponse>>> HandleAsync(
+    [SwaggerResponse(200, "Projects retrieved successfully grouped by tenants", typeof(TenantProjectsResponse))]
+    [SwaggerResponse(500, "Internal server error")]
+    public async override Task<ActionResult<TenantProjectsResponse>> HandleAsync(
         CancellationToken cancellationToken = default)
     {
-        var result = await _projectService.GetAllAsync();
+        var result = await _projectService.GetAllByTenantsAsync();
         return result.ToActionResult();
     }
 }

@@ -35,7 +35,7 @@ public class Tenant : ITenantInfo
     public string? DatabaseName { get; set; }
 
     [Column(TypeName = "jsonb")]
-    public string? Properties { get; set; } // Store additional tenant-specific configuration as JSON
+    public string? Properties { get; set; } = null; // Store additional tenant-specific configuration as JSON
 
     [ForeignKey(nameof(CreatedByUser))]
     public int? CreatedBy { get; set; }

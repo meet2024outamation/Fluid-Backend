@@ -1136,7 +1136,7 @@ public class BatchService : IBatchService
             // Save changes
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Updated document {DocumentId} with extracted text ({TextLength} characters), {FieldCount} extracted fields, SearchableUrl: {SearchableUrl}, SearchableBlobName: {SearchableBlobName}",
+            _logger.LogInformation("Updated document {DocumentId} with extracted text ({TextLength} characters), {SchemaFieldCount} extracted fields, SearchableUrl: {SearchableUrl}, SearchableBlobName: {SearchableBlobName}",
                 document.Id, document.SearchableText?.Length ?? 0, extractionResult.ExtractedFields?.Count ?? 0,
                 document.SearchableUrl ?? "None", document.SearchableBlobName ?? "None");
         }
@@ -1219,7 +1219,7 @@ public class BatchService : IBatchService
             }
 
             await _context.SaveChangesAsync();
-            _logger.LogInformation("Created/updated {FieldCount} order data records from AI extraction for order {OrderId}",
+            _logger.LogInformation("Created/updated {SchemaFieldCount} order data records from AI extraction for order {OrderId}",
                 extractedFields.Count, orderId);
         }
         catch (Exception ex)

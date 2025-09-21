@@ -6,81 +6,23 @@ using Fluid.API.Helpers;
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Infrastructure.Services;
 using Fluid.Entities.Context;
-using Fluid.Entities.Entities;
 using Fluid.Entities.IAM;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
+using Microsoft.Identity.Web;
 using Microsoft.OpenApi.Models;
 using SharedKernel.Models;
 using SharedKernel.Services;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
-
-// Add Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-        var secretKey = jwtSettings["SecretKey"];
-        var issuer = jwtSettings["Issuer"];
-        var audience = jwtSettings["Audience"];
+    .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAdConfig"));
 
-        if (!string.IsNullOrEmpty(secretKey))
-        {
-            // Use symmetric key for development
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = issuer,
-                ValidAudience = audience,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-                ClockSkew = TimeSpan.Zero
-            };
-        }
-        else
-        {
-            // Use Azure AD configuration for production
-            var azureAdSettings = builder.Configuration.GetSection("AzureAd");
-            options.Authority = $"https://login.microsoftonline.com/{azureAdSettings["TenantId"]}/v2.0";
-            options.Audience = azureAdSettings["ClientId"];
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ClockSkew = TimeSpan.Zero
-            };
-        }
-
-        options.Events = new JwtBearerEvents
-        {
-            OnAuthenticationFailed = context =>
-            {
-                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogError(context.Exception, "Authentication failed");
-                return Task.CompletedTask;
-            },
-            OnTokenValidated = context =>
-            {
-                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogInformation("Token validated for user: {User}", context.Principal?.Identity?.Name);
-                return Task.CompletedTask;
-            }
-        };
-    });
-
-// Add Authorization
 builder.Services.AddAuthorization(options =>
 {
     // Define policies for different roles
@@ -113,29 +55,16 @@ builder.Services.AddTransient<IOrderService, OrderService>();
 // TODO: Uncomment when SimpleFieldMappingService is needed
 builder.Services.AddTransient<IFieldMappingService, FieldMappingService>();
 builder.Services.AddTransient<ISchemaService, SchemaService>();
+builder.Services.AddTransient<IGlobalSchemaService, GlobalSchemaService>();
 builder.Services.AddTransient<IUser, AuthUser>();
 builder.Services.AddTransient<ITenantService, TenantService>();
 
 builder.Services.AddMultiTenant<Tenant>()
-    .WithClaimStrategy("tenant")
     .WithHeaderStrategy("X-Tenant-Id")
-    .WithRouteStrategy("tenant")
     .WithEFCoreStore<FluidIAMDbContext, Tenant>();
 
 // Add CORS
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowFrontend", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-    });
-});
-builder.Services.AddDistributedMemoryCache();
 
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
 builder.Services.AddDbContext<FluidDbContext>((serviceProvider, options) =>
 {
     var tenantInfo = serviceProvider.GetService<ITenantInfo>() as Tenant;
@@ -177,7 +106,19 @@ builder.Services.AddDbContext<FluidIAMDbContext>(options =>
         options.LogTo(Console.WriteLine, LogLevel.Information);
     }
 });
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+builder.Services.AddDistributedMemoryCache();
 
+// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -370,7 +311,7 @@ static async Task SeedDatabaseAsync(FluidDbContext context, FluidIAMDbContext ia
             var systemUser = await iamContext.Users.FirstOrDefaultAsync(u => u.AzureAdId == "system-default");
             if (systemUser != null)
             {
-                var defaultSchema = new Schema
+                var defaultSchema = new Fluid.Entities.Entities.Schema
                 {
                     Name = "Default Loan Schema",
                     Description = "Default schema for loan processing",
@@ -387,7 +328,7 @@ static async Task SeedDatabaseAsync(FluidDbContext context, FluidIAMDbContext ia
                 // Add default schema fields
                 var schemaFields = new[]
                 {
-                    new SchemaField
+                    new Fluid.Entities.Entities.SchemaField
                     {
                         SchemaId = defaultSchema.Id,
                         FieldName = "loan_id",
@@ -397,7 +338,7 @@ static async Task SeedDatabaseAsync(FluidDbContext context, FluidIAMDbContext ia
                         DisplayOrder = 1,
                         CreatedAt = DateTime.UtcNow
                     },
-                    new SchemaField
+                    new Fluid.Entities.Entities.SchemaField
                     {
                         SchemaId = defaultSchema.Id,
                         FieldName = "borrower_name",
@@ -407,7 +348,7 @@ static async Task SeedDatabaseAsync(FluidDbContext context, FluidIAMDbContext ia
                         DisplayOrder = 2,
                         CreatedAt = DateTime.UtcNow
                     },
-                    new SchemaField
+                    new Fluid.Entities.Entities.SchemaField
                     {
                         SchemaId = defaultSchema.Id,
                         FieldName = "loan_amount",
@@ -418,7 +359,7 @@ static async Task SeedDatabaseAsync(FluidDbContext context, FluidIAMDbContext ia
                         DisplayOrder = 3,
                         CreatedAt = DateTime.UtcNow
                     },
-                    new SchemaField
+                    new Fluid.Entities.Entities.SchemaField
                     {
                         SchemaId = defaultSchema.Id,
                         FieldName = "property_address",
@@ -428,7 +369,7 @@ static async Task SeedDatabaseAsync(FluidDbContext context, FluidIAMDbContext ia
                         DisplayOrder = 4,
                         CreatedAt = DateTime.UtcNow
                     },
-                    new SchemaField
+                    new Fluid.Entities.Entities.SchemaField
                     {
                         SchemaId = defaultSchema.Id,
                         FieldName = "application_date",
@@ -439,7 +380,7 @@ static async Task SeedDatabaseAsync(FluidDbContext context, FluidIAMDbContext ia
                         DisplayOrder = 5,
                         CreatedAt = DateTime.UtcNow
                     },
-                    new SchemaField
+                    new Fluid.Entities.Entities.SchemaField
                     {
                         SchemaId = defaultSchema.Id,
                         FieldName = "document_type",

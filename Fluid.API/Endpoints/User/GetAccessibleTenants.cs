@@ -1,9 +1,9 @@
 using Ardalis.ApiEndpoints;
+using Fluid.API.Infrastructure.Interfaces;
+using Fluid.API.Models.User;
 using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
-using Fluid.API.Infrastructure.Interfaces;
-using Fluid.API.Models.User;
 using System.Security.Claims;
 
 namespace Fluid.API.Endpoints.User;
@@ -33,11 +33,7 @@ public class GetAccessibleTenants : EndpointBaseAsync
     public async override Task<ActionResult<AccessibleTenantsResponse>> HandleAsync(
         CancellationToken cancellationToken = default)
     {
-        // Extract user identifier from JWT claims and clean up domain prefixes
-        var userIdentifier = User.FindFirstValue("preferred_username")?.Replace("live.com#", "") 
-                          ?? User.FindFirstValue("upn")?.Replace("live.com#", "")
-                          ?? User.FindFirstValue("unique_name")?.Replace("live.com#", "")
-                          ?? User.FindFirstValue(ClaimTypes.Email);
+        var userIdentifier = User.FindFirstValue("preferred_username")?.Replace("live.com#", "");
 
         if (string.IsNullOrEmpty(userIdentifier))
         {

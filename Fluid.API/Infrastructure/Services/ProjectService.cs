@@ -9,11 +9,13 @@ namespace Fluid.API.Infrastructure.Services;
 public class ProjectService : IProjectService
 {
     private readonly FluidDbContext _context;
+    private readonly FluidIAMDbContext _iamContext;
     private readonly ILogger<ProjectService> _logger;
 
-    public ProjectService(FluidDbContext context, ILogger<ProjectService> logger)
+    public ProjectService(FluidDbContext context, FluidIAMDbContext iamContext, ILogger<ProjectService> logger)
     {
         _context = context;
+        _iamContext = iamContext;
         _logger = logger;
     }
 
@@ -102,6 +104,123 @@ public class ProjectService : IProjectService
         {
             _logger.LogError(ex, "Error retrieving projects");
             return Result<List<ProjectListResponse>>.Error("An error occurred while retrieving projects.");
+        }
+    }
+
+    public async Task<Result<TenantProjectsResponse>> GetAllByTenantsAsync()
+    {
+        try
+        {
+            _logger.LogInformation("?? Starting tenant-based project retrieval...");
+
+            // Get all active tenants from IAM database
+            var tenants = await _iamContext.Tenants
+                .Where(t => t.IsActive)
+                .OrderBy(t => t.Name)
+                .ToListAsync();
+
+            _logger.LogInformation("?? Found {TenantCount} active tenants", tenants.Count);
+
+            var tenantsWithProjects = new List<TenantWithProjects>();
+            int totalProjects = 0;
+
+            foreach (var tenant in tenants)
+            {
+                try
+                {
+                    _logger.LogDebug("?? Processing tenant: {TenantName} ({TenantId})", tenant.Name, tenant.Identifier);
+
+                    if (string.IsNullOrEmpty(tenant.ConnectionString))
+                    {
+                        _logger.LogWarning("?? Tenant {TenantName} has no connection string, skipping...", tenant.Name);
+
+                        // Add tenant with empty projects list
+                        tenantsWithProjects.Add(new TenantWithProjects
+                        {
+                            TenantId = tenant.Id,
+                            TenantName = tenant.Name,
+                            TenantIdentifier = tenant.Identifier,
+                            Description = tenant.Description,
+                            IsActive = tenant.IsActive,
+                            Projects = new List<ProjectInTenant>()
+                        });
+                        continue;
+                    }
+
+                    // Create tenant-specific database context
+                    var tenantDbOptions = new DbContextOptionsBuilder<FluidDbContext>()
+                        .UseNpgsql(tenant.ConnectionString)
+                        .UseSnakeCaseNamingConvention()
+                        .Options;
+
+                    using var tenantContext = new FluidDbContext(tenantDbOptions, tenant);
+
+                    // Get projects for this tenant
+                    var projects = await tenantContext.Projects
+                        .Where(p => p.IsActive)
+                        .OrderBy(p => p.Name)
+                        .Select(p => new ProjectInTenant
+                        {
+                            ProjectId = p.Id,
+                            ProjectName = p.Name,
+                            ProjectCode = p.Code,
+                            IsActive = p.IsActive,
+                            CreatedAt = p.CreatedAt,
+                            UpdatedAt = p.UpdatedAt,
+                            CreatedBy = p.CreatedBy
+                        })
+                        .ToListAsync();
+
+                    var tenantWithProjects = new TenantWithProjects
+                    {
+                        TenantId = tenant.Id,
+                        TenantName = tenant.Name,
+                        TenantIdentifier = tenant.Identifier,
+                        Description = tenant.Description,
+                        IsActive = tenant.IsActive,
+                        Projects = projects
+                    };
+
+                    tenantsWithProjects.Add(tenantWithProjects);
+                    totalProjects += projects.Count;
+
+                    _logger.LogDebug("? Retrieved {ProjectCount} projects for tenant: {TenantName}", projects.Count, tenant.Name);
+                }
+                catch (Exception tenantEx)
+                {
+                    _logger.LogWarning(tenantEx, "? Failed to retrieve projects for tenant: {TenantName} - {ErrorMessage}",
+                        tenant.Name, tenantEx.Message);
+
+                    // Add tenant with empty projects list on error
+                    tenantsWithProjects.Add(new TenantWithProjects
+                    {
+                        TenantId = tenant.Id,
+                        TenantName = tenant.Name,
+                        TenantIdentifier = tenant.Identifier,
+                        Description = tenant.Description,
+                        IsActive = tenant.IsActive,
+                        Projects = new List<ProjectInTenant>()
+                    });
+                }
+            }
+
+            var response = new TenantProjectsResponse
+            {
+                Tenants = tenantsWithProjects,
+                TotalTenants = tenantsWithProjects.Count,
+                TotalProjects = totalProjects
+            };
+
+            _logger.LogInformation("?? Project retrieval completed: {TenantCount} tenants, {ProjectCount} total projects",
+                response.TotalTenants, response.TotalProjects);
+
+            return Result<TenantProjectsResponse>.Success(response,
+                $"Retrieved {response.TotalTenants} tenants with {response.TotalProjects} total projects");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "?? Error retrieving tenant-based projects: {ErrorMessage}", ex.Message);
+            return Result<TenantProjectsResponse>.Error("An error occurred while retrieving projects by tenants.");
         }
     }
 

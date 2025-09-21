@@ -16,7 +16,7 @@ public class UserRole
     [StringLength(40)]
     public string? TenantId { get; set; }
 
-    public int? ProjectId { get; set; }
+    public int? ProjectId { get; set; } = null;
 
     [StringLength(20)]
     [Unicode(false)]

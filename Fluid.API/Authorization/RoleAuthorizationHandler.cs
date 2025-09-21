@@ -31,31 +31,32 @@ public class RoleAuthorizationHandler : AuthorizationHandler<RoleRequirement>
                 return;
             }
 
-            // Get user identifier from claims
-            var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var azureAdIdClaim = context.User.FindFirst("preferred_username")?.Value
-                               ?? context.User.FindFirst("upn")?.Value
-                               ?? context.User.FindFirst("unique_name")?.Value;
+            // Get user identifier from claims and clean up domain prefixes
+            var userIdentifier = context.User.FindFirstValue("preferred_username")?.Replace("live.com#", "")
+                              ?? context.User.FindFirstValue("upn")?.Replace("live.com#", "")
+                              ?? context.User.FindFirstValue("unique_name")?.Replace("live.com#", "")
+                              ?? context.User.FindFirstValue(ClaimTypes.Email)
+                              ?? context.User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            if (string.IsNullOrEmpty(userIdClaim) && string.IsNullOrEmpty(azureAdIdClaim))
+            if (string.IsNullOrEmpty(userIdentifier))
             {
                 _logger.LogWarning("No user identifier found in claims");
                 context.Fail();
                 return;
             }
 
-            // Find user in database
+            _logger.LogDebug("Checking authorization for user identifier: {UserIdentifier}", userIdentifier);
+
+            // Find user in database by email or Azure AD ID
             var user = await _iamContext.Users
                 .Include(u => u.UserRoleUsers)
                     .ThenInclude(ur => ur.Role)
-                .FirstOrDefaultAsync(u =>
-                    (userIdClaim != null && u.Id.ToString() == userIdClaim) ||
-                    (azureAdIdClaim != null && u.AzureAdId == azureAdIdClaim));
+                .Where(u => (u.Email == userIdentifier || u.AzureAdId.Contains(userIdentifier)) && u.IsActive)
+                .FirstOrDefaultAsync();
 
             if (user == null)
             {
-                _logger.LogWarning("User not found in database. UserIdClaim: {UserIdClaim}, AzureAdIdClaim: {AzureAdIdClaim}",
-                    userIdClaim, azureAdIdClaim);
+                _logger.LogWarning("User not found in database with identifier: {UserIdentifier}", userIdentifier);
                 context.Fail();
                 return;
             }
@@ -67,25 +68,65 @@ public class RoleAuthorizationHandler : AuthorizationHandler<RoleRequirement>
                 return;
             }
 
-            // Check if user has any of the required roles
+            // Get all user roles (including global roles with null tenant/project)
             var userRoles = user.UserRoleUsers
                 .Where(ur => ur.Role.IsActive)
-                .Select(ur => ur.Role.Name)
+                .Select(ur => new { 
+                    RoleName = ur.Role.Name, 
+                    TenantId = ur.TenantId, 
+                    ProjectId = ur.ProjectId 
+                })
                 .ToList();
 
-            bool hasRequiredRole = requirement.AllowedRoles.Any(requiredRole =>
-                userRoles.Contains(requiredRole, StringComparer.OrdinalIgnoreCase));
+            _logger.LogDebug("User {UserId} has roles: {UserRoles}", 
+                user.Id, 
+                string.Join(", ", userRoles.Select(r => $"{r.RoleName}(T:{r.TenantId},P:{r.ProjectId})")));
+
+            // Check if user has any of the required roles
+            bool hasRequiredRole = false;
+
+            foreach (var requiredRole in requirement.AllowedRoles)
+            {
+                // Special handling for Product Owner - must have null tenant and project
+                if (requiredRole == ApplicationRoles.ProductOwner)
+                {
+                    hasRequiredRole = userRoles.Any(ur => 
+                        ur.RoleName.Equals(ApplicationRoles.ProductOwner, StringComparison.OrdinalIgnoreCase) &&
+                        ur.TenantId == null && 
+                        ur.ProjectId == null);
+                    
+                    if (hasRequiredRole)
+                    {
+                        _logger.LogInformation("User {UserId} has Product Owner role with global access", user.Id);
+                        break;
+                    }
+                }
+                // For other roles, check if user has the role regardless of tenant/project context
+                else
+                {
+                    hasRequiredRole = userRoles.Any(ur => 
+                        ur.RoleName.Equals(requiredRole, StringComparison.OrdinalIgnoreCase));
+                    
+                    if (hasRequiredRole)
+                    {
+                        _logger.LogInformation("User {UserId} has required role: {RequiredRole}", user.Id, requiredRole);
+                        break;
+                    }
+                }
+            }
 
             if (hasRequiredRole)
             {
-                _logger.LogInformation("User {UserId} has required role. User roles: {UserRoles}, Required roles: {RequiredRoles}",
-                    user.Id, string.Join(", ", userRoles), string.Join(", ", requirement.AllowedRoles));
+                _logger.LogInformation("Authorization successful for user {UserId} ({Email}). Required roles: {RequiredRoles}",
+                    user.Id, user.Email, string.Join(", ", requirement.AllowedRoles));
                 context.Succeed(requirement);
             }
             else
             {
-                _logger.LogWarning("User {UserId} does not have required role. User roles: {UserRoles}, Required roles: {RequiredRoles}",
-                    user.Id, string.Join(", ", userRoles), string.Join(", ", requirement.AllowedRoles));
+                _logger.LogWarning("Authorization failed for user {UserId} ({Email}). User roles: {UserRoles}, Required roles: {RequiredRoles}",
+                    user.Id, user.Email,
+                    string.Join(", ", userRoles.Select(r => r.RoleName)), 
+                    string.Join(", ", requirement.AllowedRoles));
                 context.Fail();
             }
         }
@@ -108,4 +149,4 @@ public class RoleRequirement : IAuthorizationRequirement
     {
         AllowedRoles = allowedRoles ?? Array.Empty<string>();
     }
-};
+}

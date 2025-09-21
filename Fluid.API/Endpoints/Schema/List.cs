@@ -1,9 +1,9 @@
 using Ardalis.ApiEndpoints;
+using Fluid.API.Infrastructure.Interfaces;
+using Fluid.API.Models.Schema;
 using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
-using Fluid.API.Infrastructure.Interfaces;
-using Fluid.API.Models.Schema;
 
 namespace Fluid.API.Endpoints.Schema;
 
@@ -29,7 +29,7 @@ public class List : EndpointBaseAsync
     public async override Task<ActionResult<List<SchemaListResponse>>> HandleAsync(
         CancellationToken cancellationToken = default)
     {
-        var projectId = HttpContext.Request.Query.ContainsKey("projectId") 
+        var projectId = HttpContext.Request.Query.ContainsKey("projectId")
             ? int.TryParse(HttpContext.Request.Query["projectId"], out var id) ? (int?)id : null
             : null;
 

@@ -1,3 +1,4 @@
+using Fluid.Entities.IAM;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
@@ -16,16 +17,22 @@ public class FluidDbContextFactory : IDesignTimeDbContextFactory<FluidDbContext>
             .Build();
 
         var connectionString = configuration.GetConnectionString("DefaultConnection");
-        
+
         if (string.IsNullOrEmpty(connectionString))
         {
             // Fallback connection string for design-time if not found in config
-            connectionString = "Host=localhost;Database=fluid_default;Username=postgres;Password=your_password";
+            connectionString = "Host=dev2.outamationlabs.com;Port=5555;Database=FluidDb;Username=postgres;Password=KeshavDB@1933;";
         }
 
         var optionsBuilder = new DbContextOptionsBuilder<FluidDbContext>();
         optionsBuilder.UseNpgsql(connectionString);
-
-        return new FluidDbContext(optionsBuilder.Options);
+        var tenant = new Tenant
+        {
+            Id = Guid.NewGuid().ToString(),
+            Identifier = "design-time",
+            Name = "Design Time Tenant",
+            ConnectionString = connectionString
+        };
+        return new FluidDbContext(optionsBuilder.Options, tenant);
     }
 }
