@@ -621,12 +621,21 @@ public class ManageUserService : IManageUserService
                             ur.Tenant.IsActive)
                 .ToList();
 
-            var tenantOwnerTenantIds = tenantOwnerRoles
-                .Select(ur => ur.TenantId!)
-                .Distinct()
+            // Create detailed tenant admin information
+            var tenantAdminTenants = tenantOwnerRoles
+                .GroupBy(ur => ur.Tenant!)
+                .Select(tenantGroup => new Fluid.API.Models.User.TenantAdminInfo
+                {
+                    TenantId = tenantGroup.Key.Id,
+                    TenantName = tenantGroup.Key.Name,
+                    TenantIdentifier = tenantGroup.Key.Identifier,
+                    Description = tenantGroup.Key.Description,
+                    IsActive = tenantGroup.Key.IsActive
+                })
+                .OrderBy(t => t.TenantName)
                 .ToList();
 
-            _logger.LogDebug("User {UserIdentifier} has Tenant Owner access to {TenantCount} tenants", userIdentifier, tenantOwnerTenantIds.Count);
+            _logger.LogDebug("User {UserIdentifier} has Tenant Owner access to {TenantCount} tenants", userIdentifier, tenantAdminTenants.Count);
 
             // Group user roles by tenant for regular project-based access
             // Only include roles that have both tenant and project (exclude Product Owner and Tenant Owner)
@@ -722,16 +731,16 @@ public class ManageUserService : IManageUserService
                 UserName = user.Name,
                 Email = user.Email,
                 IsProductOwner = isProductOwner,
-                TenantAdminTenantIds = tenantOwnerTenantIds,
+                TenantAdminIds = tenantAdminTenants,
                 Tenants = accessibleTenants.OrderBy(t => t.TenantName).ToList()
             };
 
-            _logger.LogInformation("Retrieved {TenantCount} accessible tenants with {ProjectCount} total projects for user {UserIdentifier}. IsProductOwner: {IsProductOwner}, TenantOwnerCount: {TenantOwnerCount}",
+            _logger.LogInformation("Retrieved {TenantCount} accessible tenants with {ProjectCount} total projects for user {UserIdentifier}. IsProductOwner: {IsProductOwner}, TenantAdminCount: {TenantAdminCount}",
                 response.Tenants.Count,
                 response.Tenants.Sum(t => t.ProjectCount),
                 userIdentifier,
                 isProductOwner,
-                tenantOwnerTenantIds.Count);
+                tenantAdminTenants.Count);
 
             return Result<Fluid.API.Models.User.AccessibleTenantsResponse>.Success(response,
                 $"Retrieved {response.Tenants.Count} accessible tenants with {response.Tenants.Sum(t => t.ProjectCount)} total projects");

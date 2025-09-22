@@ -1,3 +1,4 @@
+using Finbuckle.MultiTenant.Abstractions;
 using Finbuckle.MultiTenant.EntityFrameworkCore.Stores.EFCoreStore;
 using Fluid.Entities.Entities;
 using Fluid.Entities.IAM;
@@ -7,20 +8,20 @@ namespace Fluid.Entities.Context;
 
 public class FluidDbContext : DbContext
 {
-    private readonly Tenant _tenantInfo;
+    private readonly ITenantInfo? _tenantInfo;
 
-    public FluidDbContext(DbContextOptions<FluidDbContext> options, Tenant tenantInfo)
+    public FluidDbContext(DbContextOptions<FluidDbContext> options, ITenantInfo? tenantInfo = null)
         : base(options)
     {
-        _tenantInfo = tenantInfo ?? throw new ArgumentNullException(nameof(tenantInfo));
+        _tenantInfo = tenantInfo;
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        // Apply tenant-specific connection string
-        if (!string.IsNullOrEmpty(_tenantInfo?.ConnectionString))
+        // Apply tenant-specific connection string if available
+        if (_tenantInfo is Tenant tenant && !string.IsNullOrEmpty(tenant.ConnectionString))
         {
-            optionsBuilder.UseNpgsql(_tenantInfo.ConnectionString);
+            optionsBuilder.UseNpgsql(tenant.ConnectionString);
         }
 
         // Common settings

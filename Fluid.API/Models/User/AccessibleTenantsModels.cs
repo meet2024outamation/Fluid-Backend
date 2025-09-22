@@ -16,15 +16,27 @@ public class AccessibleTenantsResponse
     public bool IsProductOwner { get; set; }
 
     /// <summary>
-    /// List of tenant IDs where user has Tenant Owner role (null project but specific tenant)
+    /// List of tenants where user has Tenant Owner/Admin role with detailed tenant information
     /// These tenants appear in tenant selection screen for tenant-level management
     /// </summary>
-    public List<string> TenantAdminTenantIds { get; set; } = new List<string>();
+    public List<TenantAdminInfo> TenantAdminIds { get; set; } = new List<TenantAdminInfo>();
 
     /// <summary>
     /// Regular tenant access with project-specific roles
     /// </summary>
     public List<AccessibleTenant> Tenants { get; set; } = new List<AccessibleTenant>();
+}
+
+/// <summary>
+/// Tenant information for admin/owner access
+/// </summary>
+public class TenantAdminInfo
+{
+    public string TenantId { get; set; } = string.Empty;
+    public string TenantName { get; set; } = string.Empty;
+    public string TenantIdentifier { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public bool IsActive { get; set; }
 }
 
 /// <summary>

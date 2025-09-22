@@ -7,6 +7,8 @@ using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Infrastructure.Services;
 using Fluid.Entities.Context;
 using Fluid.Entities.IAM;
+
+//using Fluid.Entities.IAM;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -45,46 +47,15 @@ builder.Services.AddScoped<IAuthorizationHandler, RoleAuthorizationHandler>();
 // Configure Azure AD settings
 builder.Services.Configure<AzureADConfig>(builder.Configuration.GetSection("AzureAdConfig"));
 
-// Register application services
-builder.Services.AddTransient<IProjectService, ProjectService>();
-builder.Services.AddTransient<ICurrentUserService, CurrentUserService>();
-builder.Services.AddTransient<IGraphService, GraphService>();
-builder.Services.AddTransient<IManageUserService, ManageUserService>();
-builder.Services.AddTransient<IBatchService, BatchService>();
-builder.Services.AddTransient<IOrderService, OrderService>();
-// TODO: Uncomment when SimpleFieldMappingService is needed
-builder.Services.AddTransient<IFieldMappingService, FieldMappingService>();
-builder.Services.AddTransient<ISchemaService, SchemaService>();
-builder.Services.AddTransient<IGlobalSchemaService, GlobalSchemaService>();
-builder.Services.AddTransient<IUser, AuthUser>();
-builder.Services.AddTransient<ITenantService, TenantService>();
-
-builder.Services.AddMultiTenant<Tenant>()
+// Configure multi-tenant services first  
+builder.Services.AddMultiTenant<Fluid.Entities.IAM.Tenant>()
     .WithHeaderStrategy("X-Tenant-Id")
-    .WithEFCoreStore<FluidIAMDbContext, Tenant>();
+    .WithStore(ServiceLifetime.Scoped, serviceProvider => 
+        new Fluid.API.Infrastructure.MultiTenant.FlexibleTenantStore(
+            serviceProvider.GetRequiredService<FluidIAMDbContext>(),
+            serviceProvider.GetRequiredService<ILogger<Fluid.API.Infrastructure.MultiTenant.FlexibleTenantStore>>()));
 
-// Add CORS
-
-builder.Services.AddDbContext<FluidDbContext>((serviceProvider, options) =>
-{
-    var tenantInfo = serviceProvider.GetService<ITenantInfo>() as Tenant;
-
-    var connectionString = tenantInfo?.ConnectionString ??
-                           builder.Configuration.GetConnectionString("DefaultConnection");
-
-    if (string.IsNullOrEmpty(connectionString))
-        throw new InvalidOperationException("No tenant connection string found!");
-
-    options.UseNpgsql(connectionString)
-           .UseSnakeCaseNamingConvention();
-
-    if (builder.Environment.IsDevelopment())
-    {
-        options.EnableSensitiveDataLogging();
-        options.EnableDetailedErrors();
-        options.LogTo(Console.WriteLine, LogLevel.Information);
-    }
-});
+// Configure IAM DbContext (non-tenant specific)
 builder.Services.AddDbContext<FluidIAMDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("IAMConnection");
@@ -106,6 +77,54 @@ builder.Services.AddDbContext<FluidIAMDbContext>(options =>
         options.LogTo(Console.WriteLine, LogLevel.Information);
     }
 });
+
+// Configure FluidDbContext with proper tenant resolution through accessor
+builder.Services.AddDbContext<FluidDbContext>((serviceProvider, options) =>
+{
+    // Force resolve tenant through our FlexibleTenantStore via accessor
+    var multiTenantContextAccessor = serviceProvider.GetService<IMultiTenantContextAccessor<Fluid.Entities.IAM.Tenant>>();
+    var tenantInfo = multiTenantContextAccessor?.MultiTenantContext?.TenantInfo;
+    
+    var connectionString = tenantInfo?.ConnectionString ?? 
+                          builder.Configuration.GetConnectionString("DefaultConnection");
+    
+    if (string.IsNullOrEmpty(connectionString))
+    {
+        Console.WriteLine($"⚠️ No connection string found. Using fallback.");
+        connectionString = builder.Configuration.GetConnectionString("IAMConnection");
+    }
+    
+    Console.WriteLine($"🔗 FluidDbContext using tenant: {tenantInfo?.Name ?? "default"}");
+    
+    options.UseNpgsql(connectionString).UseSnakeCaseNamingConvention();
+
+    // Enable detailed errors in development
+    if (builder.Environment.IsDevelopment())
+    {
+        options.EnableSensitiveDataLogging();
+        options.EnableDetailedErrors();
+        options.LogTo(Console.WriteLine, LogLevel.Information);
+    }
+});
+
+// Register application services
+builder.Services.AddTransient<IProjectService, ProjectService>();
+builder.Services.AddTransient<ICurrentUserService, CurrentUserService>();
+builder.Services.AddTransient<IGraphService, GraphService>();
+builder.Services.AddTransient<IManageUserService, ManageUserService>();
+builder.Services.AddTransient<IBatchService, BatchService>();
+builder.Services.AddTransient<IOrderService, OrderService>();
+// TODO: Uncomment when SimpleFieldMappingService is needed
+builder.Services.AddTransient<IFieldMappingService, FieldMappingService>();
+builder.Services.AddTransient<ISchemaService, SchemaService>();
+builder.Services.AddTransient<IGlobalSchemaService, GlobalSchemaService>();
+builder.Services.AddTransient<IUser, AuthUser>();
+builder.Services.AddTransient<ITenantService, TenantService>();
+
+
+// Add CORS
+
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -237,13 +256,10 @@ if (app.Environment.IsDevelopment())
     }
 }
 
-// Add a root endpoint that redirects to Swagger in development
-if (app.Environment.IsDevelopment())
-{
-    app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
-}
-
+// CRITICAL: UseMultiTenant() must be called EARLY in the pipeline
+// It needs to be before any middleware that depends on tenant context
 app.UseMultiTenant();
+
 app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
 
@@ -251,8 +267,10 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
-
+if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+}
 // Log the Swagger URL on startup
 if (app.Environment.IsDevelopment())
 {
@@ -265,6 +283,8 @@ if (app.Environment.IsDevelopment())
         logger.LogInformation("🌐 API Base URL: http://localhost:5086");
     });
 }
+
+app.MapControllers();
 
 app.Run();
 
@@ -279,7 +299,7 @@ static async Task SeedDatabaseAsync(FluidDbContext context, FluidIAMDbContext ia
 
             var roles = new[]
             {
-                new Role
+                new Fluid.Entities.IAM.Role
                 {
                     Name = ApplicationRoles.ProductOwner,
                     Description = "Product Owner with full tenant management access",
@@ -287,7 +307,7 @@ static async Task SeedDatabaseAsync(FluidDbContext context, FluidIAMDbContext ia
                     IsActive = true,
                     CreatedDateTime = DateTimeOffset.UtcNow
                 },
-                new Role
+                new Fluid.Entities.IAM.Role
                 {
                     Name = ApplicationRoles.TenantAdmin,
                     Description = "Administrator with tenant access",

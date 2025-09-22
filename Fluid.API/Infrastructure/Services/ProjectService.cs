@@ -147,6 +147,23 @@ public class ProjectService : IProjectService
                         continue;
                     }
 
+                    // Validate connection string format
+                    if (!tenant.ConnectionString.Contains("Database="))
+                    {
+                        _logger.LogWarning("?? Tenant {TenantName} has invalid connection string format, skipping...", tenant.Name);
+
+                        tenantsWithProjects.Add(new TenantWithProjects
+                        {
+                            TenantId = tenant.Id,
+                            TenantName = tenant.Name,
+                            TenantIdentifier = tenant.Identifier,
+                            Description = tenant.Description,
+                            IsActive = tenant.IsActive,
+                            Projects = new List<ProjectInTenant>()
+                        });
+                        continue;
+                    }
+
                     // Create tenant-specific database context
                     var tenantDbOptions = new DbContextOptionsBuilder<FluidDbContext>()
                         .UseNpgsql(tenant.ConnectionString)
@@ -154,6 +171,24 @@ public class ProjectService : IProjectService
                         .Options;
 
                     using var tenantContext = new FluidDbContext(tenantDbOptions, tenant);
+
+                    // Test connection before querying
+                    var canConnect = await tenantContext.Database.CanConnectAsync();
+                    if (!canConnect)
+                    {
+                        _logger.LogWarning("?? Cannot connect to database for tenant: {TenantName}, skipping...", tenant.Name);
+
+                        tenantsWithProjects.Add(new TenantWithProjects
+                        {
+                            TenantId = tenant.Id,
+                            TenantName = tenant.Name,
+                            TenantIdentifier = tenant.Identifier,
+                            Description = tenant.Description,
+                            IsActive = tenant.IsActive,
+                            Projects = new List<ProjectInTenant>()
+                        });
+                        continue;
+                    }
 
                     // Get projects for this tenant
                     var projects = await tenantContext.Projects
