@@ -7,8 +7,6 @@ public class Project
     [Key]
     public int Id { get; set; }
     [Required]
-    public string TenantId { get; set; } = string.Empty;
-    [Required]
     [StringLength(255)]
     public string Name { get; set; } = string.Empty;
 

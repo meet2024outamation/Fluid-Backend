@@ -1,4 +1,3 @@
-using Fluid.Entities.Enums;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -15,8 +14,9 @@ public class Order
     [ForeignKey(nameof(Project))]
     public int ProjectId { get; set; }
 
+    [ForeignKey(nameof(OrderStatus))]
     [Required]
-    public OrderStatus Status { get; set; } = OrderStatus.Created;
+    public int OrderStatusId { get; set; } = 1; // Default to first status (Created)
 
     public int Priority { get; set; } = 5; // 1-10 priority scale
 
@@ -38,6 +38,7 @@ public class Order
     // Navigation properties
     public Batch Batch { get; set; } = null!;
     public Project Project { get; set; } = null!;
+    public OrderStatus OrderStatus { get; set; } = null!;
     //public User? AssignedUser { get; set; }
     public ICollection<Document> Documents { get; set; } = new List<Document>();
     public ICollection<OrderData> OrderData { get; set; } = new List<OrderData>();

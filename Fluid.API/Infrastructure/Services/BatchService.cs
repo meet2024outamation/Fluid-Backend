@@ -7,6 +7,7 @@ using Fluid.Entities.Enums;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Result;
 using System.Text.Json;
+using OrderStatusEnum = Fluid.Entities.Enums.OrderStatus;
 
 namespace Fluid.API.Infrastructure.Services;
 
@@ -39,6 +40,16 @@ public class BatchService : IBatchService
         _context = context;
         _logger = logger;
         _configuration = configuration;
+    }
+
+    // Helper to get OrderStatusId by enum
+    private async Task<int> GetOrderStatusIdAsync(OrderStatusEnum status)
+    {
+        var name = status.ToString();
+        var entity = await _context.OrderStatuses.FirstOrDefaultAsync(os => os.Name == name && os.IsActive);
+        if (entity == null)
+            throw new Exception($"OrderStatus '{name}' not found in DB");
+        return entity.Id;
     }
 
     public async Task<Result<BatchResponse>> CreateAsync(CreateBatchRequest request, int currentUserId)
@@ -173,6 +184,7 @@ public class BatchService : IBatchService
     {
         try
         {
+            var validStatusName = OrderStatusEnum.ValidationError.ToString();
             var batches = await _context.Batches
                 .Include(b => b.Project)
                 //.Include(b => b.CreatedByUser)
@@ -187,8 +199,8 @@ public class BatchService : IBatchService
                 Status = b.Status.ToString(),
                 TotalOrders = b.TotalOrders,
                 ProcessedOrders = b.ProcessedOrders,
-                ValidOrders = b.Orders.Count(w => w.Status != OrderStatus.ValidationError),
-                InvalidOrders = b.Orders.Count(w => w.Status == OrderStatus.ValidationError),
+                ValidOrders = b.Orders.Count(w => w.OrderStatus != null && w.OrderStatus.Name != validStatusName),
+                InvalidOrders = b.Orders.Count(w => w.OrderStatus != null && w.OrderStatus.Name == validStatusName),
                 CreatedAt = b.CreatedAt,
                 //CreatedByName = b.CreatedByUser.Name
             })
@@ -215,6 +227,7 @@ public class BatchService : IBatchService
                 .Where(b => b.ProjectId == projectId)
                 .ToListAsync();
 
+            var validStatusName = OrderStatusEnum.ValidationError.ToString();
             var batchListResponses = batches.Select(b => new BatchListResponse
             {
                 Id = b.Id,
@@ -223,8 +236,8 @@ public class BatchService : IBatchService
                 Status = b.Status.ToString(),
                 TotalOrders = b.TotalOrders,
                 ProcessedOrders = b.ProcessedOrders,
-                ValidOrders = b.Orders.Count(w => w.Status != OrderStatus.ValidationError),
-                InvalidOrders = b.Orders.Count(w => w.Status == OrderStatus.ValidationError),
+                ValidOrders = b.Orders.Count(w => w.OrderStatus != null && w.OrderStatus.Name != validStatusName),
+                InvalidOrders = b.Orders.Count(w => w.OrderStatus != null && w.OrderStatus.Name == validStatusName),
                 CreatedAt = b.CreatedAt,
                 //CreatedByName = b.CreatedByUser.Name
             })
@@ -345,13 +358,15 @@ public class BatchService : IBatchService
             // If reprocessing validation errors, reset order statuses
             if (request.ReprocessValidationErrors)
             {
+                var errorStatusName = OrderStatusEnum.ValidationError.ToString();
+                var createdStatusId = await GetOrderStatusIdAsync(OrderStatusEnum.Created);
                 var errorOrders = await _context.Orders
-                    .Where(w => w.BatchId == request.BatchId && w.Status == OrderStatus.ValidationError)
+                    .Where(w => w.BatchId == request.BatchId && w.OrderStatus != null && w.OrderStatus.Name == errorStatusName)
                     .ToListAsync();
 
                 foreach (var order in errorOrders)
                 {
-                    order.Status = OrderStatus.Created;
+                    order.OrderStatusId = createdStatusId;
                     order.ValidationErrors = null;
                 }
             }
@@ -379,31 +394,24 @@ public class BatchService : IBatchService
 
     public async Task<Result<List<BatchOrderResponse>>> GetBatchOrdersAsync(int batchId)
     {
-        try
-        {
-            var workItems = await _context.Orders
-                .Where(w => w.BatchId == batchId)
-                .ToListAsync();
+        var workItems = await _context.Orders
+            .Where(w => w.BatchId == batchId)
+            .Include(w => w.OrderStatus)
+            .ToListAsync();
 
-            var orders = workItems.Select(w => new BatchOrderResponse(
-                    w.Id,
-                    w.Status.ToString(),
-                    !string.IsNullOrEmpty(w.ValidationErrors),
-                    string.IsNullOrEmpty(w.ValidationErrors)
-                        ? new List<string>()
-                        : (JsonSerializer.Deserialize<List<string>>(w.ValidationErrors) ?? new List<string>()),
-                    w.CreatedAt
-                ))
-                .ToList();
+        var orderResponses = workItems.Select(w => new BatchOrderResponse(
+                w.Id,
+                w.OrderStatus?.Name ?? "Unknown",
+                !string.IsNullOrEmpty(w.ValidationErrors),
+                string.IsNullOrEmpty(w.ValidationErrors)
+                    ? new List<string>()
+                    : (JsonSerializer.Deserialize<List<string>>(w.ValidationErrors) ?? new List<string>()),
+                w.CreatedAt
+            ))
+            .ToList();
 
-            _logger.LogInformation("Retrieved {Count} orders for batch {BatchId}", orders.Count, batchId);
-            return Result<List<BatchOrderResponse>>.Success(orders, $"Retrieved {orders.Count} orders successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving orders for batch {BatchId}", batchId);
-            return Result<List<BatchOrderResponse>>.Error("An error occurred while retrieving batch orders.");
-        }
+        _logger.LogInformation("Retrieved {Count} orders for batch {BatchId}", orderResponses.Count, batchId);
+        return Result<List<BatchOrderResponse>>.Success(orderResponses, $"Retrieved {orderResponses.Count} orders successfully");
     }
 
     public async Task<Result<bool>> DeleteAsync(int id)
@@ -516,11 +524,12 @@ public class BatchService : IBatchService
             // Create orders from grouped records
             foreach (var groupedRecord in groupedRecords)
             {
+                var createdStatusId = await GetOrderStatusIdAsync(OrderStatusEnum.Created);
                 var order = new Order
                 {
                     BatchId = batch.Id,
                     ProjectId = batch.ProjectId,
-                    Status = OrderStatus.Created,
+                    OrderStatusId = createdStatusId,
                     CreatedAt = DateTime.UtcNow
                 };
 
@@ -824,6 +833,9 @@ public class BatchService : IBatchService
         //}
 
         // Validation 2: Check for missing PDF documents
+        var validationErrorStatusId = await GetOrderStatusIdAsync(OrderStatusEnum.ValidationError);
+        var createdStatusId = await GetOrderStatusIdAsync(OrderStatusEnum.Created);
+        var readyForAIStatusId = await GetOrderStatusIdAsync(OrderStatusEnum.ReadyForAI);
         var ordersWithMissingPDFs = new List<int>();
         foreach (var order in orders)
         {
@@ -832,10 +844,9 @@ public class BatchService : IBatchService
 
             if (!hasDocuments)
             {
-                ordersWithMissingPDFs.Add(order.Id);
-                if (order.Status != OrderStatus.ValidationError)
+                if (order.OrderStatusId != validationErrorStatusId)
                 {
-                    order.Status = OrderStatus.ValidationError;
+                    order.OrderStatusId = validationErrorStatusId;
                     var errors = new List<string>();
                     if (!string.IsNullOrEmpty(order.ValidationErrors))
                     {
@@ -857,9 +868,9 @@ public class BatchService : IBatchService
         }
 
         // Mark valid orders as ready for AI processing
-        foreach (var order in orders.Where(o => o.Status == OrderStatus.Created))
+        foreach (var order in orders.Where(o => o.OrderStatusId == createdStatusId))
         {
-            order.Status = OrderStatus.ReadyForAI;
+            order.OrderStatusId = readyForAIStatusId;
         }
 
         await _context.SaveChangesAsync();
@@ -871,12 +882,14 @@ public class BatchService : IBatchService
     {
         var results = new List<BatchValidationResult>();
 
+        var validationErrorStatusId = await GetOrderStatusIdAsync(OrderStatusEnum.ValidationError);
+        var readyForAIStatusId = await GetOrderStatusIdAsync(OrderStatusEnum.ReadyForAI);
         var orders = await _context.Orders
             .Where(w => w.BatchId == batchId)
             .ToListAsync();
 
-        var errorOrders = orders.Where(o => o.Status == OrderStatus.ValidationError).ToList();
-        var readyOrders = orders.Where(o => o.Status == OrderStatus.ReadyForAI).ToList();
+        var errorOrders = orders.Where(o => o.OrderStatusId == validationErrorStatusId).ToList();
+        var readyOrders = orders.Where(o => o.OrderStatusId == readyForAIStatusId).ToList();
 
         if (errorOrders.Any())
         {
@@ -901,8 +914,9 @@ public class BatchService : IBatchService
 
     private static BatchResponse MapToBatchResponse(Entities.Entities.Batch batch, List<BatchValidationResult> validationResults)
     {
-        var validOrders = batch.Orders.Count(w => w.Status != OrderStatus.ValidationError);
-        var invalidOrders = batch.Orders.Count(w => w.Status == OrderStatus.ValidationError);
+        var validStatusName = OrderStatusEnum.ValidationError.ToString();
+        var validOrders = batch.Orders.Count(w => w.OrderStatus != null && w.OrderStatus.Name != validStatusName);
+        var invalidOrders = batch.Orders.Count(w => w.OrderStatus != null && w.OrderStatus.Name == validStatusName);
 
         return new BatchResponse
         {

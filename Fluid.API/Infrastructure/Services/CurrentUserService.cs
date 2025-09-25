@@ -32,35 +32,53 @@ public class CurrentUserService : ICurrentUserService
 
         try
         {
-            // Try to get user ID directly from claims first
-            var userIdClaim = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (!string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out var userId))
+            var principal = httpContext.User;
+
+            // 1) Some systems inject app user id as integer in NameIdentifier
+            var nameIdentifier = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrWhiteSpace(nameIdentifier) && int.TryParse(nameIdentifier, out var appUserId))
             {
-                _logger.LogDebug("Current user ID from NameIdentifier claim: {UserId}", userId);
-                return userId;
+                _logger.LogDebug("Current user ID from NameIdentifier (int) claim: {UserId}", appUserId);
+                return appUserId;
             }
 
-            // If direct user ID not available, try to find user by Azure AD ID
-            var azureAdIdClaim = httpContext.User.FindFirst("preferred_username")?.Value 
-                               ?? httpContext.User.FindFirst("upn")?.Value
-                               ?? httpContext.User.FindFirst("unique_name")?.Value;
-
-            if (!string.IsNullOrEmpty(azureAdIdClaim))
+            // 2) Azure AD Object Id (oid) -> map to IAM.Users.AzureAdId
+            //    Standard types: "oid" or "http://schemas.microsoft.com/identity/claims/objectidentifier"
+            var objectId = principal.FindFirst("oid")?.Value
+                         ?? principal.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
+            if (!string.IsNullOrWhiteSpace(objectId))
             {
-                var user = _iamContext.Users
+                var userByOid = _iamContext.Users
                     .AsNoTracking()
-                    .FirstOrDefault(u => u.AzureAdId == azureAdIdClaim);
-
-                if (user != null)
+                    .FirstOrDefault(u => u.AzureAdId == objectId);
+                if (userByOid != null)
                 {
-                    _logger.LogDebug("Current user ID from Azure AD lookup: {UserId} for AzureAdId: {AzureAdId}", 
-                        user.Id, azureAdIdClaim);
-                    return user.Id;
+                    _logger.LogDebug("Current user ID from Azure AD ObjectId (oid) lookup: {UserId}", userByOid.Id);
+                    return userByOid.Id;
                 }
             }
 
-            _logger.LogWarning("Could not determine user ID from claims. UserIdClaim: {UserIdClaim}, AzureAdIdClaim: {AzureAdIdClaim}", 
-                userIdClaim, azureAdIdClaim);
+            // 3) Fall back to email-based lookup: preferred_username / emails / upn
+            var email = principal.FindFirst("preferred_username")?.Value
+                     ?? principal.FindFirst(ClaimTypes.Email)?.Value
+                     ?? principal.FindFirst("emails")?.Value
+                     ?? principal.FindFirst("upn")?.Value
+                     ?? principal.FindFirst("unique_name")?.Value;
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                var userByEmail = _iamContext.Users
+                    .AsNoTracking()
+                    .FirstOrDefault(u => u.Email.ToLower() == email.ToLower());
+                if (userByEmail != null)
+                {
+                    _logger.LogDebug("Current user ID from email lookup: {UserId} ({Email})", userByEmail.Id, email);
+                    return userByEmail.Id;
+                }
+            }
+
+            _logger.LogWarning(
+                "Could not determine user ID from claims. NameIdentifier: {NameIdentifier}, OID: {Oid}, Email: {Email}",
+                nameIdentifier, objectId, email);
             return 0;
         }
         catch (Exception ex)

@@ -4,10 +4,13 @@ using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Models.Project;
+using Fluid.API.Authorization;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Fluid.API.Endpoints.Project;
 
 [Route("api/projects")]
+[RequireTenantAccess]
 public class Create : EndpointBaseAsync
     .WithRequest<CreateProjectRequest>
     .WithActionResult<ProjectResponse>

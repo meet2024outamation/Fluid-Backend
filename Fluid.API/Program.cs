@@ -1,4 +1,4 @@
-﻿using Finbuckle.MultiTenant;
+using Finbuckle.MultiTenant;
 using Finbuckle.MultiTenant.Abstractions;
 using Fluid.API.Authorization;
 using Fluid.API.Constants;
@@ -6,7 +6,6 @@ using Fluid.API.Helpers;
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Infrastructure.Services;
 using Fluid.Entities.Context;
-using Fluid.Entities.IAM;
 
 //using Fluid.Entities.IAM;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -39,10 +38,13 @@ builder.Services.AddAuthorization(options =>
 
     options.AddPolicy(AuthorizationPolicies.OperatorPolicy, policy =>
         policy.Requirements.Add(new RoleRequirement(ApplicationRoles.Operator, ApplicationRoles.Manager, ApplicationRoles.TenantAdmin)));
+    options.AddPolicy("RequireTenantAccess", policy =>
+    policy.Requirements.Add(new RequireTenantAccessRequirement()));
 });
 
 // Register authorization handler
 builder.Services.AddScoped<IAuthorizationHandler, RoleAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, RequireTenantAccessHandler>();
 
 // Configure Azure AD settings
 builder.Services.Configure<AzureADConfig>(builder.Configuration.GetSection("AzureAdConfig"));
@@ -50,7 +52,7 @@ builder.Services.Configure<AzureADConfig>(builder.Configuration.GetSection("Azur
 // Configure multi-tenant services first  
 builder.Services.AddMultiTenant<Fluid.Entities.IAM.Tenant>()
     .WithHeaderStrategy("X-Tenant-Id")
-    .WithStore(ServiceLifetime.Scoped, serviceProvider => 
+    .WithStore(ServiceLifetime.Scoped, serviceProvider =>
         new Fluid.API.Infrastructure.MultiTenant.FlexibleTenantStore(
             serviceProvider.GetRequiredService<FluidIAMDbContext>(),
             serviceProvider.GetRequiredService<ILogger<Fluid.API.Infrastructure.MultiTenant.FlexibleTenantStore>>()));
@@ -84,18 +86,18 @@ builder.Services.AddDbContext<FluidDbContext>((serviceProvider, options) =>
     // Force resolve tenant through our FlexibleTenantStore via accessor
     var multiTenantContextAccessor = serviceProvider.GetService<IMultiTenantContextAccessor<Fluid.Entities.IAM.Tenant>>();
     var tenantInfo = multiTenantContextAccessor?.MultiTenantContext?.TenantInfo;
-    
-    var connectionString = tenantInfo?.ConnectionString ?? 
+
+    var connectionString = tenantInfo?.ConnectionString ??
                           builder.Configuration.GetConnectionString("DefaultConnection");
-    
+
     if (string.IsNullOrEmpty(connectionString))
     {
         Console.WriteLine($"⚠️ No connection string found. Using fallback.");
         connectionString = builder.Configuration.GetConnectionString("IAMConnection");
     }
-    
+
     Console.WriteLine($"🔗 FluidDbContext using tenant: {tenantInfo?.Name ?? "default"}");
-    
+
     options.UseNpgsql(connectionString).UseSnakeCaseNamingConvention();
 
     // Enable detailed errors in development
@@ -114,6 +116,8 @@ builder.Services.AddTransient<IGraphService, GraphService>();
 builder.Services.AddTransient<IManageUserService, ManageUserService>();
 builder.Services.AddTransient<IBatchService, BatchService>();
 builder.Services.AddTransient<IOrderService, OrderService>();
+builder.Services.AddTransient<IOrderFlowService, OrderFlowService>();
+builder.Services.AddTransient<IOrderStatusService, OrderStatusService>();
 // TODO: Uncomment when SimpleFieldMappingService is needed
 builder.Services.AddTransient<IFieldMappingService, FieldMappingService>();
 builder.Services.AddTransient<ISchemaService, SchemaService>();

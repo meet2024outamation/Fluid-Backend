@@ -38,6 +38,8 @@ public class FluidDbContext : DbContext
     public DbSet<Batch> Batches { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderData> OrderData { get; set; }
+    public DbSet<OrderFlow> OrderFlows { get; set; }
+    public DbSet<Entities.OrderStatus> OrderStatuses { get; set; }
     public DbSet<Document> Documents { get; set; }
     public DbSet<FieldMapping> FieldMappings { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
@@ -121,9 +123,6 @@ public class FluidDbContext : DbContext
         modelBuilder.Entity<Order>(entity =>
         {
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.Status)
-                  .HasConversion<string>()
-                  .HasMaxLength(50);
 
             entity.HasOne(e => e.Batch)
                   .WithMany(b => b.Orders)
@@ -133,6 +132,11 @@ public class FluidDbContext : DbContext
             entity.HasOne(e => e.Project)
                   .WithMany(c => c.Orders)
                   .HasForeignKey(e => e.ProjectId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.OrderStatus)
+                  .WithMany(os => os.Orders)
+                  .HasForeignKey(e => e.OrderStatusId)
                   .OnDelete(DeleteBehavior.Restrict);
 
             // Note: AssignedUser references will be handled by UserId only
@@ -199,6 +203,38 @@ public class FluidDbContext : DbContext
                   .HasMaxLength(20);
 
             // Note: User references will be handled by UserId only
+        });
+
+        // Configure OrderFlow entity
+        modelBuilder.Entity<OrderFlow>(entity =>
+        {
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.HasIndex(e => new { e.OrderId, e.Rank }).IsUnique();
+
+            entity.HasOne(e => e.Order)
+                  .WithMany()
+                  .HasForeignKey(e => e.OrderId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.OrderStatus)
+                  .WithMany(os => os.OrderFlows)
+                  .HasForeignKey(e => e.OrderStatusId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            // Note: CreatedBy and UpdatedBy references will be handled by UserId only
+        });
+
+        // Configure OrderStatus entity
+        modelBuilder.Entity<Entities.OrderStatus>(entity =>
+        {
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Description).HasMaxLength(500);
+
+            entity.HasIndex(e => e.Name).IsUnique();
+            // Removed DisplayOrder index
+            // Note: CreatedBy and UpdatedBy references will be handled by UserId only
         });
     }
 }

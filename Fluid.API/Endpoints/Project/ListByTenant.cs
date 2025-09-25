@@ -1,4 +1,5 @@
 using Ardalis.ApiEndpoints;
+using Fluid.API.Authorization;
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Models.Project;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,7 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace Fluid.API.Endpoints.Client;
 
 [Route("api/projects")]
+[RequireTenantAccess]
 public class ListByTenant : EndpointBaseAsync
     .WithoutRequest
     .WithActionResult<List<ProjectListResponse>>

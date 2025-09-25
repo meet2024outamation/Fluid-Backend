@@ -21,13 +21,16 @@ public class OrderService : IOrderService
         _logger = logger;
     }
 
+    private static string GetOrderStatusName(OrderStatus statusEnum)
+        => statusEnum.ToString();
+
     public async Task<Result<AssignOrderResponse>> AssignOrderAsync(AssignOrderRequest request, int currentUserId)
     {
         try
         {
             // Validate order exists
             var order = await _context.Orders
-                //.Include(o => o.AssignedUser)
+                .Include(o => o.OrderStatus)
                 .FirstOrDefaultAsync(o => o.Id == request.OrderId);
 
             if (order == null)
@@ -65,20 +68,41 @@ public class OrderService : IOrderService
                 return Result<AssignOrderResponse>.Invalid(new List<ValidationError> { validationError });
             }
 
-            // Check if order is in assignable status
-            var assignableStatuses = new List<OrderStatus>
+            // Use enum for assignable statuses
+            var assignableEnums = new[]
             {
                 OrderStatus.Created,
                 OrderStatus.ReadyForAI,
                 OrderStatus.ReadyForAssignment
             };
+            var assignableStatusNames = assignableEnums.Select(GetOrderStatusName).ToList();
+            var assignableStatusIds = await _context.OrderStatuses
+                .Where(os => assignableStatusNames.Contains(os.Name) && os.IsActive)
+                .Select(os => os.Id)
+                .ToListAsync();
 
-            if (!assignableStatuses.Contains(order.Status))
+            if (!assignableStatusIds.Contains(order.OrderStatusId))
             {
+                var currentStatus = order.OrderStatus?.Name ?? "Unknown";
                 var validationError = new ValidationError
                 {
                     Key = nameof(request.OrderId),
-                    ErrorMessage = $"Order cannot be assigned in current status: {order.Status}"
+                    ErrorMessage = $"Order cannot be assigned in current status: {currentStatus}"
+                };
+                return Result<AssignOrderResponse>.Invalid(new List<ValidationError> { validationError });
+            }
+
+            // Get the "Assigned" status using enum
+            var assignedStatusName = GetOrderStatusName(OrderStatus.Assigned);
+            var assignedStatus = await _context.OrderStatuses
+                .FirstOrDefaultAsync(os => os.Name == assignedStatusName && os.IsActive);
+
+            if (assignedStatus == null)
+            {
+                var validationError = new ValidationError
+                {
+                    Key = "OrderStatus",
+                    ErrorMessage = "Assigned status not found or inactive."
                 };
                 return Result<AssignOrderResponse>.Invalid(new List<ValidationError> { validationError });
             }
@@ -86,7 +110,7 @@ public class OrderService : IOrderService
             // Assign the order
             order.AssignedTo = request.UserId;
             order.AssignedAt = DateTime.UtcNow;
-            order.Status = OrderStatus.Assigned;
+            order.OrderStatusId = assignedStatus.Id;
             order.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
@@ -97,7 +121,7 @@ public class OrderService : IOrderService
                 UserId = user.Id,
                 UserName = user.Name,
                 AssignedAt = order.AssignedAt.Value,
-                Status = order.Status.ToString(),
+                Status = assignedStatus.Name,
                 Message = "Order assigned successfully"
             };
 
@@ -124,7 +148,6 @@ public class OrderService : IOrderService
             var orderData = await _context.OrderData
                 .Include(od => od.Order)
                 .Include(od => od.SchemaField)
-                //.Include(od => od.VerifiedByUser)
                 .FirstOrDefaultAsync(od => od.Id == request.OrderDataId);
 
             if (orderData == null)
@@ -282,7 +305,7 @@ public class OrderService : IOrderService
             var query = _context.Orders
                 .Include(o => o.Batch)
                 .Include(o => o.Project)
-                //.Include(o => o.AssignedUser)
+                .Include(o => o.OrderStatus)
                 .Include(o => o.Documents)
                 .Include(o => o.OrderData)
                 .ThenInclude(od => od.SchemaField)
@@ -301,9 +324,15 @@ public class OrderService : IOrderService
 
             if (!string.IsNullOrEmpty(request.Status))
             {
+                // Use enum for comparison if possible
                 if (Enum.TryParse<OrderStatus>(request.Status, true, out var statusEnum))
                 {
-                    query = query.Where(o => o.Status == statusEnum);
+                    var statusName = GetOrderStatusName(statusEnum);
+                    query = query.Where(o => o.OrderStatus.Name == statusName);
+                }
+                else
+                {
+                    query = query.Where(o => o.OrderStatus.Name == request.Status);
                 }
             }
 
@@ -376,7 +405,7 @@ public class OrderService : IOrderService
                 BatchFileName = o.Batch.FileName,
                 ProjectId = o.ProjectId,
                 ProjectName = o.Project.Name,
-                Status = o.Status.ToString(),
+                Status = o.OrderStatus?.Name ?? "Unknown",
                 Priority = o.Priority,
                 AssignedTo = o.AssignedTo,
                 AssignedUserName = o.AssignedTo != null && users.ContainsKey(o.AssignedTo.Value)
@@ -434,7 +463,7 @@ public class OrderService : IOrderService
             "id" => isDescending ? query.OrderByDescending(o => o.Id) : query.OrderBy(o => o.Id),
             "batchid" => isDescending ? query.OrderByDescending(o => o.BatchId) : query.OrderBy(o => o.BatchId),
             "projectname" => isDescending ? query.OrderByDescending(o => o.Project.Name) : query.OrderBy(o => o.Project.Name),
-            "status" => isDescending ? query.OrderByDescending(o => o.Status) : query.OrderBy(o => o.Status),
+            "status" => isDescending ? query.OrderByDescending(o => o.OrderStatus.Name) : query.OrderBy(o => o.OrderStatus.Name),
             "priority" => isDescending ? query.OrderByDescending(o => o.Priority) : query.OrderBy(o => o.Priority),
             "assignedat" => isDescending ? query.OrderByDescending(o => o.AssignedAt) : query.OrderBy(o => o.AssignedAt),
             "startedat" => isDescending ? query.OrderByDescending(o => o.StartedAt) : query.OrderBy(o => o.StartedAt),
