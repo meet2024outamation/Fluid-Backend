@@ -10,7 +10,7 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace Fluid.API.Endpoints.GlobalSchema;
 
 [Route("api/global-schemas")]
-[Authorize(Policy = AuthorizationPolicies.ProductOwnerPolicy)]
+[Authorize(Policy = AuthorizationPolicies.TenantAdminPolicy)]
 public class GetById : EndpointBaseAsync
     .WithRequest<int>
     .WithActionResult<GlobalSchemaResponse>

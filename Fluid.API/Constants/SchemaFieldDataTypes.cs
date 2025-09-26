@@ -10,7 +10,6 @@ public static class SchemaFieldDataTypes
     public const string DateTime = "dateTime";
     public const string Date = "date";
     public const string Boolean = "bool";
-
     /// <summary>
     /// Gets all supported data types
     /// </summary>

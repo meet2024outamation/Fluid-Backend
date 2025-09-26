@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Fluid.Entities.IAM; // Use IAM.OrderStatus
 
 namespace Fluid.Entities.Entities;
 
@@ -38,7 +39,7 @@ public class Order
     // Navigation properties
     public Batch Batch { get; set; } = null!;
     public Project Project { get; set; } = null!;
-    public OrderStatus OrderStatus { get; set; } = null!;
+    // Removed OrderStatus navigation property
     //public User? AssignedUser { get; set; }
     public ICollection<Document> Documents { get; set; } = new List<Document>();
     public ICollection<OrderData> OrderData { get; set; } = new List<OrderData>();

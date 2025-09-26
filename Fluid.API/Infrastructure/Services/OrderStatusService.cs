@@ -1,7 +1,7 @@
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Models.OrderStatus;
 using Fluid.Entities.Context;
-using Fluid.Entities.Entities;
+using Fluid.Entities.IAM;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Result;
 
@@ -9,12 +9,14 @@ namespace Fluid.API.Infrastructure.Services;
 
 public class OrderStatusService : IOrderStatusService
 {
-    private readonly FluidDbContext _context;
+    private readonly FluidIAMDbContext _context;
+    private readonly FluidDbContext _tenantContext;
     private readonly ILogger<OrderStatusService> _logger;
 
-    public OrderStatusService(FluidDbContext context, ILogger<OrderStatusService> logger)
+    public OrderStatusService(FluidIAMDbContext context, FluidDbContext tenantContext, ILogger<OrderStatusService> logger)
     {
         _context = context;
+        _tenantContext = tenantContext;
         _logger = logger;
     }
 
@@ -22,8 +24,7 @@ public class OrderStatusService : IOrderStatusService
     {
         try
         {
-            // Check if order status name already exists
-            var existingOrderStatus = await _context.Set<OrderStatus>()
+            var existingOrderStatus = await _context.OrderStatuses
                 .FirstOrDefaultAsync(os => os.Name == request.Name);
 
             if (existingOrderStatus != null)
@@ -49,7 +50,7 @@ public class OrderStatusService : IOrderStatusService
                 UpdatedAt = DateTime.UtcNow
             };
 
-            _context.Set<OrderStatus>().Add(orderStatus);
+            _context.OrderStatuses.Add(orderStatus);
             await _context.SaveChangesAsync();
 
             var response = new OrderStatusResponse
@@ -80,7 +81,7 @@ public class OrderStatusService : IOrderStatusService
     {
         try
         {
-            var orderStatus = await _context.Set<OrderStatus>()
+            var orderStatus = await _context.OrderStatuses
                 .FirstOrDefaultAsync(os => os.Id == id);
 
             if (orderStatus == null)
@@ -89,10 +90,9 @@ public class OrderStatusService : IOrderStatusService
                 return Result<OrderStatusResponse>.NotFound();
             }
 
-            // Check if the new name conflicts with another order status
             if (request.Name != orderStatus.Name)
             {
-                var existingOrderStatus = await _context.Set<OrderStatus>()
+                var existingOrderStatus = await _context.OrderStatuses
                     .FirstOrDefaultAsync(os => os.Name == request.Name && os.Id != id);
 
                 if (existingOrderStatus != null)
@@ -109,7 +109,6 @@ public class OrderStatusService : IOrderStatusService
                 }
             }
 
-            // Update the order status properties
             orderStatus.Name = request.Name;
             orderStatus.Description = request.Description;
             orderStatus.IsActive = request.IsActive;
@@ -118,9 +117,8 @@ public class OrderStatusService : IOrderStatusService
 
             await _context.SaveChangesAsync();
 
-            // Get counts
-            var orderCount = await _context.Orders.CountAsync(o => o.OrderStatusId == id);
-            var orderFlowCount = await _context.Set<OrderFlow>().CountAsync(of => of.OrderStatusId == id);
+            var orderCount = await _tenantContext.Orders.CountAsync(o => o.OrderStatusId == id);
+            var orderFlowCount = await _tenantContext.OrderFlows.CountAsync(of => of.OrderStatusId == id);
 
             var response = new OrderStatusResponse
             {
@@ -150,7 +148,7 @@ public class OrderStatusService : IOrderStatusService
     {
         try
         {
-            var orderStatus = await _context.Set<OrderStatus>()
+            var orderStatus = await _context.OrderStatuses
                 .FirstOrDefaultAsync(os => os.Id == id);
 
             if (orderStatus == null)
@@ -159,9 +157,8 @@ public class OrderStatusService : IOrderStatusService
                 return Result<OrderStatusResponse>.NotFound();
             }
 
-            // Get counts
-            var orderCount = await _context.Orders.CountAsync(o => o.OrderStatusId == id);
-            var orderFlowCount = await _context.Set<OrderFlow>().CountAsync(of => of.OrderStatusId == id);
+            var orderCount = await _tenantContext.Orders.CountAsync(o => o.OrderStatusId == id);
+            var orderFlowCount = await _tenantContext.OrderFlows.CountAsync(of => of.OrderStatusId == id);
 
             var response = new OrderStatusResponse
             {
@@ -191,17 +188,16 @@ public class OrderStatusService : IOrderStatusService
     {
         try
         {
-            var orderStatuses = await _context.Set<OrderStatus>()
-                .OrderBy(os => os.Name)
+            var orderStatuses = await _context.OrderStatuses
+                .OrderBy(os => os.Name).OrderBy(os => os.Id)
                 .ToListAsync();
 
             var responses = new List<OrderStatusResponse>();
 
             foreach (var orderStatus in orderStatuses)
             {
-                // Get counts for each status
-                var orderCount = await _context.Orders.CountAsync(o => o.OrderStatusId == orderStatus.Id);
-                var orderFlowCount = await _context.Set<OrderFlow>().CountAsync(of => of.OrderStatusId == orderStatus.Id);
+                var orderCount = await _tenantContext.Orders.CountAsync(o => o.OrderStatusId == orderStatus.Id);
+                var orderFlowCount = await _tenantContext.OrderFlows.CountAsync(of => of.OrderStatusId == orderStatus.Id);
 
                 responses.Add(new OrderStatusResponse
                 {
@@ -232,9 +228,7 @@ public class OrderStatusService : IOrderStatusService
     {
         try
         {
-            var orderStatus = await _context.Set<OrderStatus>()
-                .Include(os => os.Orders)
-                .Include(os => os.OrderFlows)
+            var orderStatus = await _context.OrderStatuses
                 .FirstOrDefaultAsync(os => os.Id == id);
 
             if (orderStatus == null)
@@ -243,8 +237,10 @@ public class OrderStatusService : IOrderStatusService
                 return Result<bool>.NotFound();
             }
 
-            // Check if order status has associated orders
-            if (orderStatus.Orders.Any())
+            var orderCount = await _tenantContext.Orders.CountAsync(o => o.OrderStatusId == id);
+            var orderFlowCount = await _tenantContext.OrderFlows.CountAsync(of => of.OrderStatusId == id);
+
+            if (orderCount > 0)
             {
                 var validationError = new ValidationError
                 {
@@ -254,8 +250,7 @@ public class OrderStatusService : IOrderStatusService
                 return Result<bool>.Invalid(new List<ValidationError> { validationError });
             }
 
-            // Check if order status has associated order flows
-            if (orderStatus.OrderFlows.Any())
+            if (orderFlowCount > 0)
             {
                 var validationError = new ValidationError
                 {
@@ -265,8 +260,7 @@ public class OrderStatusService : IOrderStatusService
                 return Result<bool>.Invalid(new List<ValidationError> { validationError });
             }
 
-            // Remove the order status
-            _context.Set<OrderStatus>().Remove(orderStatus);
+            _context.OrderStatuses.Remove(orderStatus);
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Order status deleted successfully with ID: {OrderStatusId}", id);

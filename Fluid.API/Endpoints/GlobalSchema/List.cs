@@ -10,7 +10,7 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace Fluid.API.Endpoints.GlobalSchema;
 
 [Route("api/global-schemas")]
-[Authorize(Policy = AuthorizationPolicies.ProductOwnerPolicy)]
+[Authorize(Policy = AuthorizationPolicies.TenantAdminPolicy)]
 public class List : EndpointBaseAsync
     .WithoutRequest
     .WithActionResult<List<GlobalSchemaListResponse>>
@@ -35,8 +35,8 @@ public class List : EndpointBaseAsync
     public async override Task<ActionResult<List<GlobalSchemaListResponse>>> HandleAsync(
         CancellationToken cancellationToken = default)
     {
-        var isActive = HttpContext.Request.Query.ContainsKey("isActive") 
-            ? bool.Parse(HttpContext.Request.Query["isActive"]!) 
+        var isActive = HttpContext.Request.Query.ContainsKey("isActive")
+            ? bool.Parse(HttpContext.Request.Query["isActive"]!)
             : (bool?)null;
 
         var result = await _globalSchemaService.GetAllAsync(isActive);

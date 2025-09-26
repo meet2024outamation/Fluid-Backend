@@ -30,8 +30,8 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AuthorizationPolicies.ProductOwnerPolicy, policy =>
         policy.Requirements.Add(new RoleRequirement(ApplicationRoles.ProductOwner)));
 
-    options.AddPolicy(AuthorizationPolicies.AdminPolicy, policy =>
-        policy.Requirements.Add(new RoleRequirement(ApplicationRoles.TenantAdmin)));
+    options.AddPolicy(AuthorizationPolicies.TenantAdminPolicy, policy =>
+        policy.Requirements.Add(new RoleRequirement(ApplicationRoles.TenantAdmin, ApplicationRoles.ProductOwner)));
 
     options.AddPolicy(AuthorizationPolicies.ManagerPolicy, policy =>
         policy.Requirements.Add(new RoleRequirement(ApplicationRoles.Manager, ApplicationRoles.TenantAdmin)));

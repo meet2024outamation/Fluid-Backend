@@ -39,7 +39,7 @@ public class FluidDbContext : DbContext
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderData> OrderData { get; set; }
     public DbSet<OrderFlow> OrderFlows { get; set; }
-    public DbSet<Entities.OrderStatus> OrderStatuses { get; set; }
+    //public DbSet<Entities.OrderStatus> OrderStatuses { get; set; }
     public DbSet<Document> Documents { get; set; }
     public DbSet<FieldMapping> FieldMappings { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
@@ -134,11 +134,7 @@ public class FluidDbContext : DbContext
                   .HasForeignKey(e => e.ProjectId)
                   .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasOne(e => e.OrderStatus)
-                  .WithMany(os => os.Orders)
-                  .HasForeignKey(e => e.OrderStatusId)
-                  .OnDelete(DeleteBehavior.Restrict);
-
+            // Removed OrderStatus navigation property configuration
             // Note: AssignedUser references will be handled by UserId only
         });
 
@@ -217,25 +213,10 @@ public class FluidDbContext : DbContext
                   .HasForeignKey(e => e.OrderId)
                   .OnDelete(DeleteBehavior.Cascade);
 
-            entity.HasOne(e => e.OrderStatus)
-                  .WithMany(os => os.OrderFlows)
-                  .HasForeignKey(e => e.OrderStatusId)
-                  .OnDelete(DeleteBehavior.Restrict);
-
+            // Removed OrderStatus navigation property configuration
             // Note: CreatedBy and UpdatedBy references will be handled by UserId only
         });
 
-        // Configure OrderStatus entity
-        modelBuilder.Entity<Entities.OrderStatus>(entity =>
-        {
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.Name).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.Description).HasMaxLength(500);
-
-            entity.HasIndex(e => e.Name).IsUnique();
-            // Removed DisplayOrder index
-            // Note: CreatedBy and UpdatedBy references will be handled by UserId only
-        });
     }
 }
 
@@ -254,6 +235,7 @@ public class FluidIAMDbContext : EFCoreStoreDbContext<Tenant>
     public DbSet<Tenant> Tenants { get; set; }
     public DbSet<IAM.Schema> Schemas { get; set; }
     public DbSet<IAM.SchemaField> SchemaFields { get; set; }
+    public DbSet<IAM.OrderStatus> OrderStatuses { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -341,6 +323,16 @@ public class FluidIAMDbContext : EFCoreStoreDbContext<Tenant>
                   .WithMany(s => s.SchemaFields)
                   .HasForeignKey(e => e.SchemaId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<IAM.OrderStatus>(entity =>
+        {
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Description).HasMaxLength(500);
+
+            entity.HasIndex(e => e.Name).IsUnique();
+            // Removed DisplayOrder index
+            // Note: CreatedBy and UpdatedBy references will be handled by UserId only
         });
     }
 }

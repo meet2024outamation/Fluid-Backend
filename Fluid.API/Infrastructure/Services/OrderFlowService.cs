@@ -4,7 +4,7 @@ using Fluid.Entities.Context;
 using Fluid.Entities.Entities;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Result;
-using OrderStatusEntity = Fluid.Entities.Entities.OrderStatus;
+using OrderStatusEntity = Fluid.Entities.IAM.OrderStatus;
 
 namespace Fluid.API.Infrastructure.Services;
 
@@ -80,6 +80,7 @@ public class OrderFlowService : IOrderFlowService
                 OrderId = request.OrderId,
                 OrderStatusId = request.OrderStatusId,
                 Rank = request.Rank,
+                IsActive = request.IsActive,
                 CreatedBy = currentUserId,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
@@ -94,16 +95,16 @@ public class OrderFlowService : IOrderFlowService
                     .ThenInclude(o => o.Project)
                 .Include(of => of.Order)
                     .ThenInclude(o => o.Batch)
-                .Include(of => of.OrderStatus)
                 .FirstAsync(of => of.Id == orderFlow.Id);
-
+            var statusName = (await _context.Set<OrderStatusEntity>().FirstOrDefaultAsync(os => os.Id == createdOrderFlow.OrderStatusId))?.Name ?? "Unknown";
             var response = new OrderFlowResponse
             {
                 Id = createdOrderFlow.Id,
                 OrderId = createdOrderFlow.OrderId,
                 OrderStatusId = createdOrderFlow.OrderStatusId,
-                StatusName = createdOrderFlow.OrderStatus.Name,
+                StatusName = statusName,
                 Rank = createdOrderFlow.Rank,
+                IsActive = createdOrderFlow.IsActive,
                 CreatedBy = createdOrderFlow.CreatedBy,
                 UpdatedBy = createdOrderFlow.UpdatedBy,
                 CreatedAt = createdOrderFlow.CreatedAt,
@@ -131,7 +132,6 @@ public class OrderFlowService : IOrderFlowService
                     .ThenInclude(o => o.Project)
                 .Include(of => of.Order)
                     .ThenInclude(o => o.Batch)
-                .Include(of => of.OrderStatus)
                 .FirstOrDefaultAsync(of => of.Id == id);
 
             if (orderFlow == null)
@@ -183,21 +183,22 @@ public class OrderFlowService : IOrderFlowService
             // Update the order flow properties
             orderFlow.OrderStatusId = request.OrderStatusId;
             orderFlow.Rank = request.Rank;
+            orderFlow.IsActive = request.IsActive;
             orderFlow.UpdatedBy = currentUserId;
             orderFlow.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
             // Reload to get updated OrderStatus
-            await _context.Entry(orderFlow).Reference(of => of.OrderStatus).LoadAsync();
-
+            var statusName2 = (await _context.Set<OrderStatusEntity>().FirstOrDefaultAsync(os => os.Id == orderFlow.OrderStatusId))?.Name ?? "Unknown";
             var response = new OrderFlowResponse
             {
                 Id = orderFlow.Id,
                 OrderId = orderFlow.OrderId,
                 OrderStatusId = orderFlow.OrderStatusId,
-                StatusName = orderFlow.OrderStatus.Name,
+                StatusName = statusName2,
                 Rank = orderFlow.Rank,
+                IsActive = orderFlow.IsActive,
                 CreatedBy = orderFlow.CreatedBy,
                 UpdatedBy = orderFlow.UpdatedBy,
                 CreatedAt = orderFlow.CreatedAt,
@@ -225,7 +226,6 @@ public class OrderFlowService : IOrderFlowService
                     .ThenInclude(o => o.Project)
                 .Include(of => of.Order)
                     .ThenInclude(o => o.Batch)
-                .Include(of => of.OrderStatus)
                 .FirstOrDefaultAsync(of => of.Id == id);
 
             if (orderFlow == null)
@@ -234,13 +234,15 @@ public class OrderFlowService : IOrderFlowService
                 return Result<OrderFlowResponse>.NotFound();
             }
 
+            var statusName3 = (await _context.Set<OrderStatusEntity>().FirstOrDefaultAsync(os => os.Id == orderFlow.OrderStatusId))?.Name ?? "Unknown";
             var response = new OrderFlowResponse
             {
                 Id = orderFlow.Id,
                 OrderId = orderFlow.OrderId,
                 OrderStatusId = orderFlow.OrderStatusId,
-                StatusName = orderFlow.OrderStatus.Name,
+                StatusName = statusName3,
                 Rank = orderFlow.Rank,
+                IsActive = orderFlow.IsActive,
                 CreatedBy = orderFlow.CreatedBy,
                 UpdatedBy = orderFlow.UpdatedBy,
                 CreatedAt = orderFlow.CreatedAt,

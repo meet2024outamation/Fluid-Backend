@@ -42,7 +42,7 @@ public class UpdatedOrderFlowService : IOrderFlowService
             }
 
             // Validate that the order status exists in IAM
-            var orderStatusExists = await _context.OrderStatuses
+            var orderStatusExists = await _iamContext.OrderStatuses
                 .AnyAsync(os => os.Id == request.OrderStatusId && os.IsActive);
 
             if (!orderStatusExists)
@@ -80,6 +80,7 @@ public class UpdatedOrderFlowService : IOrderFlowService
                 OrderId = request.OrderId,
                 OrderStatusId = request.OrderStatusId,
                 Rank = request.Rank,
+                IsActive = request.IsActive,
                 CreatedBy = currentUserId,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
@@ -97,7 +98,7 @@ public class UpdatedOrderFlowService : IOrderFlowService
                 .FirstAsync(of => of.Id == orderFlow.Id);
 
             // Get the order status name from IAM
-            var orderStatus = await _context.OrderStatuses
+            var orderStatus = await _iamContext.OrderStatuses
                 .FirstAsync(os => os.Id == orderFlow.OrderStatusId);
 
             var response = new OrderFlowResponse
@@ -107,6 +108,7 @@ public class UpdatedOrderFlowService : IOrderFlowService
                 OrderStatusId = createdOrderFlow.OrderStatusId,
                 StatusName = orderStatus.Name,
                 Rank = createdOrderFlow.Rank,
+                IsActive = createdOrderFlow.IsActive,
                 CreatedBy = createdOrderFlow.CreatedBy,
                 UpdatedBy = createdOrderFlow.UpdatedBy,
                 CreatedAt = createdOrderFlow.CreatedAt,
@@ -144,7 +146,7 @@ public class UpdatedOrderFlowService : IOrderFlowService
             }
 
             // Validate that the order status exists in IAM
-            var orderStatusExists = await _context.OrderStatuses
+            var orderStatusExists = await _iamContext.OrderStatuses
                 .AnyAsync(os => os.Id == request.OrderStatusId && os.IsActive);
 
             if (!orderStatusExists)
@@ -180,13 +182,14 @@ public class UpdatedOrderFlowService : IOrderFlowService
             // Update the order flow properties
             orderFlow.OrderStatusId = request.OrderStatusId;
             orderFlow.Rank = request.Rank;
+            orderFlow.IsActive = request.IsActive;
             orderFlow.UpdatedBy = currentUserId;
             orderFlow.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
             // Get the order status name from IAM
-            var orderStatus = await _context.OrderStatuses
+            var orderStatus = await _iamContext.OrderStatuses
                 .FirstAsync(os => os.Id == orderFlow.OrderStatusId);
 
             var response = new OrderFlowResponse
@@ -196,6 +199,7 @@ public class UpdatedOrderFlowService : IOrderFlowService
                 OrderStatusId = orderFlow.OrderStatusId,
                 StatusName = orderStatus.Name,
                 Rank = orderFlow.Rank,
+                IsActive = orderFlow.IsActive,
                 CreatedBy = orderFlow.CreatedBy,
                 UpdatedBy = orderFlow.UpdatedBy,
                 CreatedAt = orderFlow.CreatedAt,
@@ -233,7 +237,7 @@ public class UpdatedOrderFlowService : IOrderFlowService
             }
 
             // Get the order status name from IAM
-            var orderStatus = await _context.OrderStatuses
+            var orderStatus = await _iamContext.OrderStatuses
                 .FirstAsync(os => os.Id == orderFlow.OrderStatusId);
 
             var response = new OrderFlowResponse
@@ -243,6 +247,7 @@ public class UpdatedOrderFlowService : IOrderFlowService
                 OrderStatusId = orderFlow.OrderStatusId,
                 StatusName = orderStatus.Name,
                 Rank = orderFlow.Rank,
+                IsActive = orderFlow.IsActive,
                 CreatedBy = orderFlow.CreatedBy,
                 UpdatedBy = orderFlow.UpdatedBy,
                 CreatedAt = orderFlow.CreatedAt,

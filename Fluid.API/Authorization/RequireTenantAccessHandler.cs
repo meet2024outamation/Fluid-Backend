@@ -66,14 +66,14 @@ namespace Fluid.API.Authorization
                     continue;
 
                 // Product Owner: TenantId can be null
-                if (roleName == "ProductOwner")
+                if (roleName == "Product Owner")
                 {
                     context.Succeed(requirement);
                     return;
                 }
 
                 // Tenant Admin: TenantId required, ProjectId can be null
-                if (roleName == "TenantAdmin")
+                if (roleName == "Tenant Admin")
                 {
                     if (string.IsNullOrEmpty(tenantIdHeader))
                         continue;

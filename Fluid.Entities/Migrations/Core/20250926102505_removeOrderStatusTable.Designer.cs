@@ -3,6 +3,7 @@ using System;
 using Fluid.Entities.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Fluid.Entities.Migrations.Core
 {
     [DbContext(typeof(FluidDbContext))]
-    partial class FluidDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250926102505_removeOrderStatusTable")]
+    partial class removeOrderStatusTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

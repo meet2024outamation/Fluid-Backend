@@ -13,6 +13,8 @@ public class CreateOrderFlowRequest
     [Required]
     [Range(1, int.MaxValue, ErrorMessage = "Rank must be greater than 0")]
     public int Rank { get; set; }
+
+    public bool IsActive { get; set; } = true;
 }
 
 public class UpdateOrderFlowRequest
@@ -23,6 +25,8 @@ public class UpdateOrderFlowRequest
     [Required]
     [Range(1, int.MaxValue, ErrorMessage = "Rank must be greater than 0")]
     public int Rank { get; set; }
+
+    public bool IsActive { get; set; } = true;
 }
 
 public class OrderFlowResponse
@@ -32,11 +36,11 @@ public class OrderFlowResponse
     public int OrderStatusId { get; set; }
     public string StatusName { get; set; } = string.Empty;
     public int Rank { get; set; }
+    public bool IsActive { get; set; }
     public int CreatedBy { get; set; }
     public int? UpdatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
-    
     // Navigation details
     public string? OrderProjectName { get; set; }
     public string? OrderBatchName { get; set; }
