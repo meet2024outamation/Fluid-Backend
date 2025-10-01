@@ -3,10 +3,12 @@ using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
 using Fluid.API.Infrastructure.Interfaces;
+using Fluid.API.Authorization;
 
 namespace Fluid.API.Endpoints.Project;
 
 [Route("api/projects")]
+[RequireTenantAccess]
 public class Delete : EndpointBaseAsync
     .WithRequest<int>
     .WithActionResult<bool>

@@ -1,4 +1,5 @@
 using Ardalis.ApiEndpoints;
+using Fluid.API.Authorization;
 using Fluid.API.Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +10,7 @@ namespace Fluid.API.Endpoints.OrderStatus;
 
 [Route("api/order-statuses")]
 [Authorize]
+[RequireTenantAccess]
 public class Delete : EndpointBaseAsync
     .WithoutRequest
     .WithActionResult<bool>

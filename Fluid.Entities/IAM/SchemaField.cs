@@ -20,6 +20,9 @@ public class SchemaField
     public string DataType { get; set; } = string.Empty;
     [StringLength(100)]
     public string? Format { get; set; }
+    public int? MinLength { get; set; }
+    public int? MaxLength { get; set; }
+    public int? Precision { get; set; }
     public bool IsRequired { get; set; } = false;
     public int DisplayOrder { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

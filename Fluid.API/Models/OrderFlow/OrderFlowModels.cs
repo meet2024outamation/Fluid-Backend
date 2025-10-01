@@ -2,11 +2,8 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Fluid.API.Models.OrderFlow;
 
-public class CreateOrderFlowRequest
+public class CreateOrderFlowStepRequest
 {
-    [Required]
-    public int OrderId { get; set; }
-
     [Required]
     public int OrderStatusId { get; set; }
 
@@ -15,6 +12,13 @@ public class CreateOrderFlowRequest
     public int Rank { get; set; }
 
     public bool IsActive { get; set; } = true;
+}
+
+public class CreateOrderFlowRequest
+{
+    [Required]
+    [MinLength(1, ErrorMessage = "At least one step is required")]
+    public List<CreateOrderFlowStepRequest> Steps { get; set; } = new();
 }
 
 public class UpdateOrderFlowRequest
@@ -32,7 +36,6 @@ public class UpdateOrderFlowRequest
 public class OrderFlowResponse
 {
     public int Id { get; set; }
-    public int OrderId { get; set; }
     public int OrderStatusId { get; set; }
     public string StatusName { get; set; } = string.Empty;
     public int Rank { get; set; }

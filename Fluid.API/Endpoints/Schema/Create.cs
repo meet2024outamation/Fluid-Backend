@@ -4,10 +4,12 @@ using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Models.Schema;
+using Fluid.API.Authorization;
 
 namespace Fluid.API.Endpoints.Schema;
 
 [Route("api/schemas")]
+[RequireTenantAccess]
 public class Create : EndpointBaseAsync
     .WithRequest<CreateSchemaRequest>
     .WithActionResult<SchemaResponse>

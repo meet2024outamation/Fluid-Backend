@@ -4,10 +4,12 @@ using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Models.Order;
+using Fluid.API.Authorization;
 
 namespace Fluid.API.Endpoints.Order;
 
 [Route("api/orders")]
+[RequireTenantAccess]
 public class AssignOrder : EndpointBaseAsync
     .WithRequest<AssignOrderRequest>
     .WithActionResult<AssignOrderResponse>

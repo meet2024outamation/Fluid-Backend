@@ -3,6 +3,7 @@ using System;
 using Fluid.Entities.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Fluid.Entities.Migrations.Core
 {
     [DbContext(typeof(FluidDbContext))]
-    partial class FluidDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250930082245_addNewFieldsInSchemaFieldsTable")]
+    partial class addNewFieldsInSchemaFieldsTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -427,6 +430,10 @@ namespace Fluid.Entities.Migrations.Core
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
 
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer")
+                        .HasColumnName("order_id");
+
                     b.Property<int>("OrderStatusId")
                         .HasColumnType("integer")
                         .HasColumnName("order_status_id");
@@ -445,6 +452,10 @@ namespace Fluid.Entities.Migrations.Core
 
                     b.HasKey("Id")
                         .HasName("pk_order_flows");
+
+                    b.HasIndex("OrderId", "Rank")
+                        .IsUnique()
+                        .HasDatabaseName("ix_order_flows_order_id_rank");
 
                     b.ToTable("order_flows", (string)null);
                 });
@@ -745,6 +756,18 @@ namespace Fluid.Entities.Migrations.Core
                     b.Navigation("Order");
 
                     b.Navigation("SchemaField");
+                });
+
+            modelBuilder.Entity("Fluid.Entities.Entities.OrderFlow", b =>
+                {
+                    b.HasOne("Fluid.Entities.Entities.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_order_flows_orders_order_id");
+
+                    b.Navigation("Order");
                 });
 
             modelBuilder.Entity("Fluid.Entities.Entities.ProjectSchema", b =>

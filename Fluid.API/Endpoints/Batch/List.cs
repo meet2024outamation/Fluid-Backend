@@ -1,4 +1,5 @@
 using Ardalis.ApiEndpoints;
+using Fluid.API.Authorization;
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Models.Batch;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,7 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace Fluid.API.Endpoints.Batch;
 
 [Route("api/batches")]
+[RequireTenantAccess]
 public class List : EndpointBaseAsync
     .WithoutRequest
     .WithActionResult<List<BatchListResponse>>

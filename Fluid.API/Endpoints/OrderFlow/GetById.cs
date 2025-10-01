@@ -1,4 +1,5 @@
 using Ardalis.ApiEndpoints;
+using Fluid.API.Authorization;
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Models.OrderFlow;
 using Microsoft.AspNetCore.Authorization;
@@ -10,6 +11,7 @@ namespace Fluid.API.Endpoints.OrderFlow;
 
 [Route("api/order-flows")]
 [Authorize]
+[RequireTenantAccess]
 public class GetById : EndpointBaseAsync
     .WithoutRequest
     .WithActionResult<OrderFlowResponse>

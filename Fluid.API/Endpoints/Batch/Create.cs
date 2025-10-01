@@ -4,10 +4,12 @@ using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Models.Batch;
+using Fluid.API.Authorization;
 
 namespace Fluid.API.Endpoints.Batch;
 
 [Route("api/batches")]
+[RequireTenantAccess]
 public class Create : EndpointBaseAsync
     .WithRequest<CreateBatchRequest>
     .WithActionResult<BatchResponse>

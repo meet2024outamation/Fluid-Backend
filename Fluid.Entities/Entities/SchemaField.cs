@@ -27,7 +27,9 @@ public class SchemaField
     public string? Format { get; set; } // mm-dd-yyyy, dd/mm/yyyy, currency, etc.
 
     public bool IsRequired { get; set; } = false;
-
+    public int? MinLength { get; set; }
+    public int? MaxLength { get; set; }
+    public int? Precision { get; set; }
     public int DisplayOrder { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

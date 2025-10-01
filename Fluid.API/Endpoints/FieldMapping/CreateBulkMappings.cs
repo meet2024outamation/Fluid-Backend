@@ -1,4 +1,5 @@
 using Ardalis.ApiEndpoints;
+using Fluid.API.Authorization;
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Models.FieldMapping;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,7 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace Fluid.API.Endpoints.FieldMapping;
 
 [Route("api/field-mappings")]
+[RequireTenantAccess]
 public class CreateBulkMappings : EndpointBaseAsync
     .WithRequest<CreateBulkFieldMappingRequest>
     .WithActionResult<BulkFieldMappingResponse>

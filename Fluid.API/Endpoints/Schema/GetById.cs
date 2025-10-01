@@ -1,4 +1,5 @@
 using Ardalis.ApiEndpoints;
+using Fluid.API.Authorization;
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Models.Schema;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,7 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace Fluid.API.Endpoints.Schema;
 
 [Route("api/schemas")]
+[RequireTenantAccess]
 public class GetById : EndpointBaseAsync
     .WithRequest<int>
     .WithActionResult<SchemaResponse>

@@ -205,16 +205,6 @@ public class FluidDbContext : DbContext
         modelBuilder.Entity<OrderFlow>(entity =>
         {
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-
-            entity.HasIndex(e => new { e.OrderId, e.Rank }).IsUnique();
-
-            entity.HasOne(e => e.Order)
-                  .WithMany()
-                  .HasForeignKey(e => e.OrderId)
-                  .OnDelete(DeleteBehavior.Cascade);
-
-            // Removed OrderStatus navigation property configuration
-            // Note: CreatedBy and UpdatedBy references will be handled by UserId only
         });
 
     }

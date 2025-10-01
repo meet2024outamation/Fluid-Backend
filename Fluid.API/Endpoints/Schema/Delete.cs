@@ -1,4 +1,5 @@
 using Ardalis.ApiEndpoints;
+using Fluid.API.Authorization;
 using Fluid.API.Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Result.Extensions;
@@ -7,6 +8,7 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace Fluid.API.Endpoints.Schema;
 
 [Route("api/schemas")]
+[RequireTenantAccess]
 public class Delete : EndpointBaseAsync
     .WithRequest<int>
     .WithActionResult<bool>

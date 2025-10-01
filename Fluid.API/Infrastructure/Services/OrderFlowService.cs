@@ -4,123 +4,25 @@ using Fluid.Entities.Context;
 using Fluid.Entities.Entities;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Result;
-using OrderStatusEntity = Fluid.Entities.IAM.OrderStatus;
 
 namespace Fluid.API.Infrastructure.Services;
 
 public class OrderFlowService : IOrderFlowService
 {
     private readonly FluidDbContext _context;
+    private readonly FluidIAMDbContext _iamContext;
     private readonly ILogger<OrderFlowService> _logger;
 
-    public OrderFlowService(FluidDbContext context, ILogger<OrderFlowService> logger)
+    public OrderFlowService(FluidDbContext context, FluidIAMDbContext iamContext, ILogger<OrderFlowService> logger)
     {
         _context = context;
+        _iamContext = iamContext;
         _logger = logger;
     }
 
     public async Task<Result<OrderFlowResponse>> CreateAsync(CreateOrderFlowRequest request, int currentUserId)
     {
-        try
-        {
-            // Validate that the order exists
-            var orderExists = await _context.Orders
-                .AnyAsync(o => o.Id == request.OrderId);
-
-            if (!orderExists)
-            {
-                _logger.LogWarning("Attempted to create order flow for non-existent order: {OrderId}", request.OrderId);
-
-                var validationError = new ValidationError
-                {
-                    Key = nameof(request.OrderId),
-                    ErrorMessage = $"Order with ID {request.OrderId} not found."
-                };
-
-                return Result<OrderFlowResponse>.Invalid(new List<ValidationError> { validationError });
-            }
-
-            // Validate that the order status exists
-            var orderStatusExists = await _context.Set<OrderStatusEntity>()
-                .AnyAsync(os => os.Id == request.OrderStatusId && os.IsActive);
-
-            if (!orderStatusExists)
-            {
-                _logger.LogWarning("Attempted to create order flow with non-existent or inactive order status: {OrderStatusId}", request.OrderStatusId);
-
-                var validationError = new ValidationError
-                {
-                    Key = nameof(request.OrderStatusId),
-                    ErrorMessage = $"Order status with ID {request.OrderStatusId} not found or inactive."
-                };
-
-                return Result<OrderFlowResponse>.Invalid(new List<ValidationError> { validationError });
-            }
-
-            // Check if there's already an order flow with the same rank for this order
-            var existingFlow = await _context.Set<OrderFlow>()
-                .FirstOrDefaultAsync(of => of.OrderId == request.OrderId && of.Rank == request.Rank);
-
-            if (existingFlow != null)
-            {
-                _logger.LogWarning("Attempted to create order flow with duplicate rank: {Rank} for order: {OrderId}", 
-                    request.Rank, request.OrderId);
-
-                var validationError = new ValidationError
-                {
-                    Key = nameof(request.Rank),
-                    ErrorMessage = $"An order flow with rank {request.Rank} already exists for this order."
-                };
-
-                return Result<OrderFlowResponse>.Invalid(new List<ValidationError> { validationError });
-            }
-
-            var orderFlow = new OrderFlow
-            {
-                OrderId = request.OrderId,
-                OrderStatusId = request.OrderStatusId,
-                Rank = request.Rank,
-                IsActive = request.IsActive,
-                CreatedBy = currentUserId,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            _context.Set<OrderFlow>().Add(orderFlow);
-            await _context.SaveChangesAsync();
-
-            // Load the created order flow with navigation properties
-            var createdOrderFlow = await _context.Set<OrderFlow>()
-                .Include(of => of.Order)
-                    .ThenInclude(o => o.Project)
-                .Include(of => of.Order)
-                    .ThenInclude(o => o.Batch)
-                .FirstAsync(of => of.Id == orderFlow.Id);
-            var statusName = (await _context.Set<OrderStatusEntity>().FirstOrDefaultAsync(os => os.Id == createdOrderFlow.OrderStatusId))?.Name ?? "Unknown";
-            var response = new OrderFlowResponse
-            {
-                Id = createdOrderFlow.Id,
-                OrderId = createdOrderFlow.OrderId,
-                OrderStatusId = createdOrderFlow.OrderStatusId,
-                StatusName = statusName,
-                Rank = createdOrderFlow.Rank,
-                IsActive = createdOrderFlow.IsActive,
-                CreatedBy = createdOrderFlow.CreatedBy,
-                UpdatedBy = createdOrderFlow.UpdatedBy,
-                CreatedAt = createdOrderFlow.CreatedAt,
-                UpdatedAt = createdOrderFlow.UpdatedAt,
-                OrderProjectName = createdOrderFlow.Order.Project.Name,
-                OrderBatchName = createdOrderFlow.Order.Batch.Name
-            };
-
-            _logger.LogInformation("Order flow created successfully with ID: {OrderFlowId}", createdOrderFlow.Id);
-            return Result<OrderFlowResponse>.Created(response, "Order flow created successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating order flow for order: {OrderId}", request.OrderId);
-            return Result<OrderFlowResponse>.Error("An error occurred while creating the order flow.");
-        }
+        throw new NotSupportedException("Single-step order flow creation is no longer supported. Use CreateFlowAsync instead.");
     }
 
     public async Task<Result<OrderFlowResponse>> UpdateAsync(int id, UpdateOrderFlowRequest request, int currentUserId)
@@ -128,10 +30,6 @@ public class OrderFlowService : IOrderFlowService
         try
         {
             var orderFlow = await _context.Set<OrderFlow>()
-                .Include(of => of.Order)
-                    .ThenInclude(o => o.Project)
-                .Include(of => of.Order)
-                    .ThenInclude(o => o.Batch)
                 .FirstOrDefaultAsync(of => of.Id == id);
 
             if (orderFlow == null)
@@ -140,8 +38,8 @@ public class OrderFlowService : IOrderFlowService
                 return Result<OrderFlowResponse>.NotFound();
             }
 
-            // Validate that the order status exists
-            var orderStatusExists = await _context.Set<OrderStatusEntity>()
+            // Validate that the order status exists in IAM
+            var orderStatusExists = await _iamContext.OrderStatuses
                 .AnyAsync(os => os.Id == request.OrderStatusId && os.IsActive);
 
             if (!orderStatusExists)
@@ -157,27 +55,21 @@ public class OrderFlowService : IOrderFlowService
                 return Result<OrderFlowResponse>.Invalid(new List<ValidationError> { validationError });
             }
 
-            // Check if the new rank conflicts with another order flow for the same order
-            if (request.Rank != orderFlow.Rank)
+            // Check if another order flow with the same rank already exists (excluding current)
+            var existingOrderFlow = await _context.Set<OrderFlow>()
+                .FirstOrDefaultAsync(of => of.Rank == request.Rank && of.Id != id);
+
+            if (existingOrderFlow != null)
             {
-                var existingFlow = await _context.Set<OrderFlow>()
-                    .FirstOrDefaultAsync(of => of.OrderId == orderFlow.OrderId && 
-                                              of.Rank == request.Rank && 
-                                              of.Id != id);
+                _logger.LogWarning("Attempted to update order flow {OrderFlowId} with existing rank {Rank}", id, request.Rank);
 
-                if (existingFlow != null)
+                var validationError = new ValidationError
                 {
-                    _logger.LogWarning("Attempted to update order flow {OrderFlowId} with duplicate rank: {Rank}", 
-                        id, request.Rank);
+                    Key = nameof(request.Rank),
+                    ErrorMessage = $"Order flow with rank {request.Rank} already exists."
+                };
 
-                    var validationError = new ValidationError
-                    {
-                        Key = nameof(request.Rank),
-                        ErrorMessage = $"An order flow with rank {request.Rank} already exists for this order."
-                    };
-
-                    return Result<OrderFlowResponse>.Invalid(new List<ValidationError> { validationError });
-                }
+                return Result<OrderFlowResponse>.Invalid(new List<ValidationError> { validationError });
             }
 
             // Update the order flow properties
@@ -189,22 +81,21 @@ public class OrderFlowService : IOrderFlowService
 
             await _context.SaveChangesAsync();
 
-            // Reload to get updated OrderStatus
-            var statusName2 = (await _context.Set<OrderStatusEntity>().FirstOrDefaultAsync(os => os.Id == orderFlow.OrderStatusId))?.Name ?? "Unknown";
+            // Get the order status name from IAM
+            var orderStatus = await _iamContext.OrderStatuses
+                .FirstAsync(os => os.Id == orderFlow.OrderStatusId);
+
             var response = new OrderFlowResponse
             {
                 Id = orderFlow.Id,
-                OrderId = orderFlow.OrderId,
                 OrderStatusId = orderFlow.OrderStatusId,
-                StatusName = statusName2,
+                StatusName = orderStatus.Name,
                 Rank = orderFlow.Rank,
                 IsActive = orderFlow.IsActive,
                 CreatedBy = orderFlow.CreatedBy,
                 UpdatedBy = orderFlow.UpdatedBy,
                 CreatedAt = orderFlow.CreatedAt,
-                UpdatedAt = orderFlow.UpdatedAt,
-                OrderProjectName = orderFlow.Order.Project.Name,
-                OrderBatchName = orderFlow.Order.Batch.Name
+                UpdatedAt = orderFlow.UpdatedAt
             };
 
             _logger.LogInformation("Order flow updated successfully with ID: {OrderFlowId}", id);
@@ -222,10 +113,6 @@ public class OrderFlowService : IOrderFlowService
         try
         {
             var orderFlow = await _context.Set<OrderFlow>()
-                .Include(of => of.Order)
-                    .ThenInclude(o => o.Project)
-                .Include(of => of.Order)
-                    .ThenInclude(o => o.Batch)
                 .FirstOrDefaultAsync(of => of.Id == id);
 
             if (orderFlow == null)
@@ -234,21 +121,21 @@ public class OrderFlowService : IOrderFlowService
                 return Result<OrderFlowResponse>.NotFound();
             }
 
-            var statusName3 = (await _context.Set<OrderStatusEntity>().FirstOrDefaultAsync(os => os.Id == orderFlow.OrderStatusId))?.Name ?? "Unknown";
+            // Get the order status name from IAM
+            var orderStatus = await _iamContext.OrderStatuses
+                .FirstAsync(os => os.Id == orderFlow.OrderStatusId);
+
             var response = new OrderFlowResponse
             {
                 Id = orderFlow.Id,
-                OrderId = orderFlow.OrderId,
                 OrderStatusId = orderFlow.OrderStatusId,
-                StatusName = statusName3,
+                StatusName = orderStatus.Name,
                 Rank = orderFlow.Rank,
                 IsActive = orderFlow.IsActive,
                 CreatedBy = orderFlow.CreatedBy,
                 UpdatedBy = orderFlow.UpdatedBy,
                 CreatedAt = orderFlow.CreatedAt,
-                UpdatedAt = orderFlow.UpdatedAt,
-                OrderProjectName = orderFlow.Order.Project.Name,
-                OrderBatchName = orderFlow.Order.Batch.Name
+                UpdatedAt = orderFlow.UpdatedAt
             };
 
             _logger.LogInformation("Retrieved order flow with ID: {OrderFlowId}", id);
@@ -258,6 +145,160 @@ public class OrderFlowService : IOrderFlowService
         {
             _logger.LogError(ex, "Error retrieving order flow with ID: {OrderFlowId}", id);
             return Result<OrderFlowResponse>.Error("An error occurred while retrieving the order flow.");
+        }
+    }
+
+    public async Task<Result<List<OrderFlowResponse>>> CreateFlowAsync(List<CreateOrderFlowStepRequest> steps, int createdBy)
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        var responses = new List<OrderFlowResponse>();
+        try
+        {
+            // Validate all order statuses exist and are active
+            var statusIds = steps.Select(s => s.OrderStatusId).Distinct().ToList();
+            var validStatuses = await _iamContext.OrderStatuses
+                .Where(os => statusIds.Contains(os.Id) && os.IsActive)
+                .Select(os => os.Id)
+                .ToListAsync();
+            var missingStatuses = statusIds.Except(validStatuses).ToList();
+            if (missingStatuses.Any())
+            {
+                return Result<List<OrderFlowResponse>>.Invalid(missingStatuses.Select(ms => new ValidationError {
+                    Key = nameof(CreateOrderFlowStepRequest.OrderStatusId),
+                    ErrorMessage = $"Order status with ID {ms} not found or inactive."
+                }).ToList());
+            }
+
+            // Check for duplicate ranks in request
+            var duplicateRanks = steps.GroupBy(s => s.Rank).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+            if (duplicateRanks.Any())
+            {
+                return Result<List<OrderFlowResponse>>.Invalid(duplicateRanks.Select(dr => new ValidationError {
+                    Key = nameof(CreateOrderFlowStepRequest.Rank),
+                    ErrorMessage = $"Duplicate rank {dr} in steps."
+                }).ToList());
+            }
+
+            // Fetch existing order flows for the tenant
+            var existingFlows = await _context.Set<OrderFlow>().ToListAsync();
+            var now = DateTime.UtcNow;
+
+            if (existingFlows.Count == 0)
+            {
+                // CREATE: No existing flows, insert all
+                var orderFlows = steps.Select(s => new OrderFlow
+                {
+                    OrderStatusId = s.OrderStatusId,
+                    Rank = s.Rank,
+                    IsActive = s.IsActive,
+                    CreatedBy = createdBy,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                }).ToList();
+                _context.Set<OrderFlow>().AddRange(orderFlows);
+                await _context.SaveChangesAsync();
+                existingFlows = orderFlows;
+            }
+            else
+            {
+                // UPDATE: Upsert logic
+                // 1. Update existing, 2. Add new, 3. Remove missing
+                var stepDict = steps.ToDictionary(s => s.OrderStatusId);
+                var flowsToRemove = existingFlows.Where(f => !stepDict.ContainsKey(f.OrderStatusId)).ToList();
+                if (flowsToRemove.Any())
+                {
+                    _context.Set<OrderFlow>().RemoveRange(flowsToRemove);
+                }
+                foreach (var flow in existingFlows)
+                {
+                    if (stepDict.TryGetValue(flow.OrderStatusId, out var step))
+                    {
+                        flow.Rank = step.Rank;
+                        flow.IsActive = step.IsActive;
+                        flow.UpdatedBy = createdBy;
+                        flow.UpdatedAt = now;
+                    }
+                }
+                var existingStatusIds = existingFlows.Select(f => f.OrderStatusId).ToHashSet();
+                var newSteps = steps.Where(s => !existingStatusIds.Contains(s.OrderStatusId)).ToList();
+                foreach (var step in newSteps)
+                {
+                    var newFlow = new OrderFlow
+                    {
+                        OrderStatusId = step.OrderStatusId,
+                        Rank = step.Rank,
+                        IsActive = step.IsActive,
+                        CreatedBy = createdBy,
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    };
+                    _context.Set<OrderFlow>().Add(newFlow);
+                    existingFlows.Add(newFlow);
+                }
+                await _context.SaveChangesAsync();
+            }
+
+            // Prepare response
+            var statusDict = await _iamContext.OrderStatuses
+                .Where(s => existingFlows.Select(f => f.OrderStatusId).Contains(s.Id))
+                .ToDictionaryAsync(s => s.Id, s => s.Name);
+            responses = existingFlows.Select(f => new OrderFlowResponse
+            {
+                Id = f.Id,
+                OrderStatusId = f.OrderStatusId,
+                StatusName = statusDict.TryGetValue(f.OrderStatusId, out var name) ? name : string.Empty,
+                Rank = f.Rank,
+                IsActive = f.IsActive,
+                CreatedBy = f.CreatedBy,
+                UpdatedBy = f.UpdatedBy,
+                CreatedAt = f.CreatedAt,
+                UpdatedAt = f.UpdatedAt
+            }).OrderBy(f => f.Rank).ToList();
+
+            await transaction.CommitAsync();
+            return Result<List<OrderFlowResponse>>.Success(responses, "Order flow steps upserted successfully");
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error upserting order flow steps");
+            return Result<List<OrderFlowResponse>>.Error("An error occurred while upserting the order flow steps.");
+        }
+    }
+
+    public async Task<Result<List<OrderFlowResponse>>> GetAllAsync()
+    {
+        try
+        {
+            var flows = await _context.Set<OrderFlow>().ToListAsync();
+            if (flows == null || flows.Count == 0)
+                return Result<List<OrderFlowResponse>>.Success(new List<OrderFlowResponse>(), "No order flows found");
+
+            // Get status names in batch
+            var statusIds = flows.Select(f => f.OrderStatusId).Distinct().ToList();
+            var statusDict = await _iamContext.OrderStatuses
+                .Where(s => statusIds.Contains(s.Id))
+                .ToDictionaryAsync(s => s.Id, s => s.Name);
+
+            var responses = flows.Select(f => new OrderFlowResponse
+            {
+                Id = f.Id,
+                OrderStatusId = f.OrderStatusId,
+                StatusName = statusDict.TryGetValue(f.OrderStatusId, out var name) ? name : string.Empty,
+                Rank = f.Rank,
+                IsActive = f.IsActive,
+                CreatedBy = f.CreatedBy,
+                UpdatedBy = f.UpdatedBy,
+                CreatedAt = f.CreatedAt,
+                UpdatedAt = f.UpdatedAt
+            }).OrderBy(f => f.Rank).ToList();
+
+            return Result<List<OrderFlowResponse>>.Success(responses, "Order flows retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving order flows");
+            return Result<List<OrderFlowResponse>>.Error("An error occurred while retrieving order flows.");
         }
     }
 }

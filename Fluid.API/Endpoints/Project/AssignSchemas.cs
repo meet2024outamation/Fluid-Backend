@@ -4,10 +4,12 @@ using SharedKernel.Result.Extensions;
 using Swashbuckle.AspNetCore.Annotations;
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Models.Project;
+using Fluid.API.Authorization;
 
 namespace Fluid.API.Endpoints.Project;
 
 [Route("api/projects")]
+[RequireTenantAccess]
 public class AssignSchemas : EndpointBaseAsync
     .WithRequest<AssignSchemasRequest>
     .WithActionResult<ProjectSchemaAssignmentResponse>

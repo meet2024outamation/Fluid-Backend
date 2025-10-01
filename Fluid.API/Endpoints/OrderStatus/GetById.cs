@@ -1,4 +1,5 @@
 using Ardalis.ApiEndpoints;
+using Fluid.API.Authorization;
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Models.OrderStatus;
 using Microsoft.AspNetCore.Authorization;
@@ -10,6 +11,7 @@ namespace Fluid.API.Endpoints.OrderStatus;
 
 [Route("api/order-statuses")]
 [Authorize]
+[RequireTenantAccess]
 public class GetById : EndpointBaseAsync
     .WithoutRequest
     .WithActionResult<OrderStatusResponse>
