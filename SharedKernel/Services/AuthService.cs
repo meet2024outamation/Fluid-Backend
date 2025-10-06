@@ -3,32 +3,6 @@ using Microsoft.Extensions.Logging;
 
 namespace SharedKernel.Services
 {
-    public interface IUser
-    {
-        public int Id { get; }//bind UserId or ServicePrincipalId
-        public string? FirstName { get; }
-        public string? LastName { get; }
-        public string Name => $"{FirstName} {LastName}";
-
-        public string? Email { get; }
-
-        public bool IsActive { get; }
-        public string? ConnectionString { get; }
-        public HashSet<string> Modules { get; }
-        public HashSet<string> Permissions { get; }
-        public bool IsServicePrinciple { get; set; }
-        public string? ProjectName { get; set; }
-        public int? ProjectId { get; set; }
-        public int? AbstractorId { get; set; }
-
-        public string? IpAddress { get; set; }
-        public int? UserTypeId { get; set; }
-        public int? TeamId { get; set; }
-        public ICollection<UserRoles> Roles { get; set; }
-    }
-
-
-
     public class TokenHandler(IHttpContextAccessor httpContextAccessor, ILogger<TokenHandler> logger)
         : DelegatingHandler
     {
@@ -56,10 +30,6 @@ namespace SharedKernel.Services
         }
     }
 
-    public class AuthService(IUser user)
-    {
-        protected readonly IUser _user = user;
-    }
     public class UserRoles
     {
         public int RoleId { get; set; }

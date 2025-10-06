@@ -541,11 +541,21 @@ public class BatchService : IBatchService
             // Create orders from grouped records
             foreach (var groupedRecord in groupedRecords)
             {
+                // Get the grouping key (identifier) from the grouped record
+                var orderIdentifier = groupedRecord.ContainsKey("grouping_key") ? groupedRecord["grouping_key"]?.ToString() : null;
+                
+                if (string.IsNullOrEmpty(orderIdentifier))
+                {
+                    _logger.LogWarning("Grouping key not found for grouped record in batch {BatchId}", batch.Id);
+                    continue;
+                }
+
                 var createdStatusId = await GetOrderStatusIdAsync(OrderStatusEnum.Created);
                 var order = new Order
                 {
                     BatchId = batch.Id,
                     ProjectId = batch.ProjectId,
+                    OrderIdentifier = orderIdentifier, // Set the order identifier from the grouping key
                     OrderStatusId = createdStatusId,
                     CreatedAt = DateTime.UtcNow
                 };

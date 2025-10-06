@@ -173,19 +173,84 @@ public class ManageUserService : IManageUserService
         }
     }
 
-    public async Task<Result<UserMeResponse>> GetCurrentUserAsync(int id)
+    public async Task<Result<UserMeResponse>> GetCurrentUserAsync(int id, string? tenantId, int? projectId)
     {
         try
         {
             var user = await _iamContext.Users
                 .Include(u => u.UserRoleUsers)
-                .ThenInclude(ur => ur.Role)
+                    .ThenInclude(ur => ur.Role)
+                        .ThenInclude(r => r.RolePermissions)
+                            .ThenInclude(rp => rp.Permission)
+                .Include(u => u.UserRoleUsers)
+                    .ThenInclude(ur => ur.Tenant)
                 .FirstOrDefaultAsync(u => u.Id == id);
 
             if (user == null)
                 return Result<UserMeResponse>.NotFound();
 
-            var userMeResponse = new UserMeResponse
+            // Determine user's primary role type by checking role assignments
+            var isProductOwner = user.UserRoleUsers.Any(ur =>
+                ur.Role.IsActive &&
+                ur.Role.Name == ApplicationRoles.ProductOwner &&
+                ur.TenantId == null &&
+                ur.ProjectId == null);
+
+            var isTenantAdmin = user.UserRoleUsers.Any(ur =>
+                ur.Role.IsActive &&
+                ur.Role.Name == ApplicationRoles.TenantAdmin &&
+                ur.ProjectId == null);
+
+            // Handle different scoping rules based on role type
+            if (isProductOwner)
+            {
+                return await GetProductOwnerUserProfileAsync(user);
+            }
+            else if (isTenantAdmin)
+            {
+                return await GetTenantAdminUserProfileAsync(user, tenantId);
+            }
+            else
+            {
+                return await GetProjectScopedUserProfileAsync(user, tenantId, projectId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving current user with ID {UserId}", id);
+            return Result<UserMeResponse>.Error("An error occurred while retrieving the current user.");
+        }
+    }
+
+    /// <summary>
+    /// Get ProductOwner user profile with global roles and permissions
+    /// </summary>
+    private async Task<Result<UserMeResponse>> GetProductOwnerUserProfileAsync(Entities.IAM.User user)
+    {
+        try
+        {
+            // ProductOwner: Return global roles and permissions only
+            var globalRoles = user.UserRoleUsers
+                .Where(ur => ur.Role.IsActive && ur.TenantId == null && ur.ProjectId == null)
+                .ToList();
+
+            // Get permissions from global roles only
+            var permissions = globalRoles
+                .SelectMany(ur => ur.Role.RolePermissions)
+                .Where(rp => rp.Permission.IsActive)
+                .Select(rp => rp.Permission)
+                .GroupBy(p => p.Id)
+                .Select(g => g.First())
+                .OrderBy(p => p.Name)
+                .Select(p => new PermissionInfo
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Description = p.Description
+                })
+                .ToList();
+
+            var response = new UserMeResponse
             {
                 Id = user.Id,
                 Email = user.Email,
@@ -195,46 +260,251 @@ public class ManageUserService : IManageUserService
                 IsActive = user.IsActive,
                 CreatedAt = user.CreatedAt,
                 UpdatedAt = user.UpdatedAt,
-                Roles = user.UserRoleUsers
-                    .Where(ur => ur.Role.IsActive)
+                Roles = globalRoles
                     .Select(ur => new UserRoleInfo
                     {
                         RoleId = ur.Role.Id,
                         RoleName = ur.Role.Name,
                         Description = ur.Role.Description
-                    }).ToList()
+                    })
+                    .OrderBy(r => r.RoleName)
+                    .ToList(),
+                Permissions = permissions
             };
 
-            return Result<UserMeResponse>.Success(userMeResponse, "Current user retrieved successfully");
+            _logger.LogInformation("Retrieved ProductOwner user {UserId} with {RoleCount} global roles and {PermissionCount} global permissions",
+                user.Id, response.Roles.Count, response.Permissions.Count);
+
+            return Result<UserMeResponse>.Success(response, "ProductOwner user profile retrieved successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving current user with ID {UserId}", id);
-            return Result<UserMeResponse>.Error("An error occurred while retrieving the current user.");
+            _logger.LogError(ex, "Error retrieving ProductOwner profile for user {UserId}", user.Id);
+            return Result<UserMeResponse>.Error("An error occurred while retrieving ProductOwner profile.");
         }
     }
 
-    // Helper method to get project name from the database
-    private async Task<string?> GetProjectNameAsync(int projectId)
+    /// <summary>
+    /// Get TenantAdmin user profile with tenant-scoped roles and permissions
+    /// </summary>
+    private async Task<Result<UserMeResponse>> GetTenantAdminUserProfileAsync(Entities.IAM.User user, string? tenantId)
     {
         try
         {
-            // Return null for invalid project IDs (used for Product Owner and Tenant Owner roles)
-            if (projectId <= 0)
+            // TenantAdmin: Require tenantId
+            if (string.IsNullOrEmpty(tenantId))
             {
-                return null;
+                return Result<UserMeResponse>.Invalid(new List<ValidationError>
+                {
+                    new ValidationError { Key = "TenantId", ErrorMessage = "TenantAdmin users must provide X-Tenant-Id header." }
+                });
             }
 
-            var project = await _context.Projects
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == projectId);
+            // Get tenant information
+            var tenant = await _iamContext.Tenants
+                .FirstOrDefaultAsync(t => t.Identifier == tenantId && t.IsActive);
 
-            return project?.Name ?? $"Project {projectId}";
+            if (tenant == null)
+            {
+                return Result<UserMeResponse>.Invalid(new List<ValidationError>
+                {
+                    new ValidationError { Key = "TenantId", ErrorMessage = $"Tenant with ID '{tenantId}' not found or inactive." }
+                });
+            }
+
+            // TenantAdmin: Return tenant-scoped roles (including global roles)
+            var tenantRoles = user.UserRoleUsers
+                .Where(ur => ur.Role.IsActive &&
+                           (ur.TenantId == tenant.Id || ur.TenantId == null)) // Include global roles and tenant-specific roles
+                .ToList();
+
+            // Get permissions from tenant-scoped roles
+            var permissions = tenantRoles
+                .SelectMany(ur => ur.Role.RolePermissions)
+                .Where(rp => rp.Permission.IsActive)
+                .Select(rp => rp.Permission)
+                .GroupBy(p => p.Id)
+                .Select(g => g.First())
+                .OrderBy(p => p.Name)
+                .Select(p => new PermissionInfo
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Description = p.Description
+                })
+                .ToList();
+
+            var response = new UserMeResponse
+            {
+                Id = user.Id,
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Phone = user.Phone,
+                IsActive = user.IsActive,
+                CreatedAt = user.CreatedAt,
+                UpdatedAt = user.UpdatedAt,
+                CurrentTenantId = tenantId,
+                CurrentTenantName = tenant.Name,
+                Roles = tenantRoles
+                    .Select(ur => new UserRoleInfo
+                    {
+                        RoleId = ur.Role.Id,
+                        RoleName = ur.Role.Name,
+                        Description = ur.Role.Description
+                    })
+                    .Distinct()
+                    .OrderBy(r => r.RoleName)
+                    .ToList(),
+                Permissions = permissions
+            };
+
+            _logger.LogInformation("Retrieved TenantAdmin user {UserId} for tenant {TenantId} with {RoleCount} roles and {PermissionCount} permissions",
+                user.Id, tenantId, response.Roles.Count, response.Permissions.Count);
+
+            return Result<UserMeResponse>.Success(response, "TenantAdmin user profile retrieved successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not retrieve project name for ProjectId: {ProjectId}", projectId);
-            return projectId > 0 ? $"Project {projectId}" : null;
+            _logger.LogError(ex, "Error retrieving TenantAdmin profile for user {UserId} in tenant {TenantId}", user.Id, tenantId);
+            return Result<UserMeResponse>.Error("An error occurred while retrieving TenantAdmin profile.");
+        }
+    }
+
+    /// <summary>
+    /// Get project-scoped user profile with project-specific roles and permissions
+    /// </summary>
+    private async Task<Result<UserMeResponse>> GetProjectScopedUserProfileAsync(Entities.IAM.User user, string? tenantId, int? projectId)
+    {
+        try
+        {
+            // Project-scoped roles: Require both tenantId and projectId
+            if (string.IsNullOrEmpty(tenantId))
+            {
+                return Result<UserMeResponse>.Invalid(new List<ValidationError>
+                {
+                    new ValidationError { Key = "TenantId", ErrorMessage = "Project-scoped roles require X-Tenant-Id header." }
+                });
+            }
+
+            if (!projectId.HasValue || projectId <= 0)
+            {
+                return Result<UserMeResponse>.Invalid(new List<ValidationError>
+                {
+                    new ValidationError { Key = "ProjectId", ErrorMessage = "Project-scoped roles require projectId query parameter." }
+                });
+            }
+
+            // Get tenant information
+            var tenant = await _iamContext.Tenants
+                .FirstOrDefaultAsync(t => t.Identifier == tenantId && t.IsActive);
+
+            if (tenant == null)
+            {
+                return Result<UserMeResponse>.Invalid(new List<ValidationError>
+                {
+                    new ValidationError { Key = "TenantId", ErrorMessage = $"Tenant with ID '{tenantId}' not found or inactive." }
+                });
+            }
+
+            // Get project information from tenant database
+            string? projectName = null;
+            try
+            {
+                var tenantDbOptions = new DbContextOptionsBuilder<FluidDbContext>()
+                    .UseNpgsql(tenant.ConnectionString)
+                    .Options;
+
+                using var tenantContext = new FluidDbContext(tenantDbOptions, tenant);
+                var project = await tenantContext.Projects
+                    .FirstOrDefaultAsync(p => p.Id == projectId && p.IsActive);
+
+                if (project == null)
+                {
+                    return Result<UserMeResponse>.Invalid(new List<ValidationError>
+                    {
+                        new ValidationError { Key = "ProjectId", ErrorMessage = $"Project with ID '{projectId}' not found or inactive in tenant '{tenantId}'." }
+                    });
+                }
+
+                projectName = project.Name;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not access tenant database to verify project {ProjectId} in tenant {TenantId}", projectId, tenantId);
+                return Result<UserMeResponse>.Invalid(new List<ValidationError>
+                {
+                    new ValidationError { Key = "ProjectId", ErrorMessage = "Could not verify project access in the specified tenant." }
+                });
+            }
+
+            // Project-scoped: Return roles for specific tenant and project (plus global roles)
+            var projectRoles = user.UserRoleUsers
+                .Where(ur => ur.Role.IsActive &&
+                           ((ur.TenantId == tenant.Id && ur.ProjectId == projectId) || // Specific project roles
+                            (ur.TenantId == null && ur.ProjectId == null))) // Global roles (ProductOwner)
+                .ToList();
+
+            if (!projectRoles.Any())
+            {
+                return Result<UserMeResponse>.Invalid(new List<ValidationError>
+                {
+                    new ValidationError { Key = "Access", ErrorMessage = $"User has no roles assigned to project '{projectId}' in tenant '{tenantId}'." }
+                });
+            }
+
+            // Get permissions from project-scoped roles
+            var permissions = projectRoles
+                .SelectMany(ur => ur.Role.RolePermissions)
+                .Where(rp => rp.Permission.IsActive)
+                .Select(rp => rp.Permission)
+                .GroupBy(p => p.Id)
+                .Select(g => g.First())
+                .OrderBy(p => p.Name)
+                .Select(p => new PermissionInfo
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Description = p.Description
+                })
+                .ToList();
+
+            var response = new UserMeResponse
+            {
+                Id = user.Id,
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Phone = user.Phone,
+                IsActive = user.IsActive,
+                CreatedAt = user.CreatedAt,
+                UpdatedAt = user.UpdatedAt,
+                CurrentTenantId = tenantId,
+                CurrentTenantName = tenant.Name,
+                CurrentProjectId = projectId,
+                CurrentProjectName = projectName,
+                Roles = projectRoles
+                    .Select(ur => new UserRoleInfo
+                    {
+                        RoleId = ur.Role.Id,
+                        RoleName = ur.Role.Name,
+                        Description = ur.Role.Description
+                    })
+                    .Distinct()
+                    .OrderBy(r => r.RoleName)
+                    .ToList(),
+                Permissions = permissions
+            };
+
+            _logger.LogInformation("Retrieved project-scoped user {UserId} for tenant {TenantId} project {ProjectId} with {RoleCount} roles and {PermissionCount} permissions",
+                user.Id, tenantId, projectId, response.Roles.Count, response.Permissions.Count);
+
+            return Result<UserMeResponse>.Success(response, "Project-scoped user profile retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving project-scoped profile for user {UserId} in tenant {TenantId} project {ProjectId}", user.Id, tenantId, projectId);
+            return Result<UserMeResponse>.Error("An error occurred while retrieving project-scoped profile.");
         }
     }
 
@@ -749,6 +1019,30 @@ public class ManageUserService : IManageUserService
         {
             _logger.LogError(ex, "Error retrieving accessible tenants for user identifier {UserIdentifier}", userIdentifier);
             return Result<Fluid.API.Models.User.AccessibleTenantsResponse>.Error("An error occurred while retrieving accessible tenants and projects.");
+        }
+    }
+
+    // Helper method to get project name from the database
+    private async Task<string?> GetProjectNameAsync(int projectId)
+    {
+        try
+        {
+            // Return null for invalid project IDs (used for Product Owner and Tenant Owner roles)
+            if (projectId <= 0)
+            {
+                return null;
+            }
+
+            var project = await _context.Projects
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == projectId);
+
+            return project?.Name ?? $"Project {projectId}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not retrieve project name for ProjectId: {ProjectId}", projectId);
+            return projectId > 0 ? $"Project {projectId}" : null;
         }
     }
 }

@@ -4,6 +4,7 @@ namespace Fluid.API.Constants
     {
         public const string ProductOwner = "ProductOwner";
         public const string TenantAdmin = "TenantAdmin";
-        public const string Operator = "Operator";
+        public const string Keying = "Keying";
+        public const string QC = "QC";
     }
 }

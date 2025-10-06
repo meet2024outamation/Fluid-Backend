@@ -64,6 +64,7 @@ public class OrderListRequest
     public int Priority { get; set; } = 1; // 1-10 priority filter
     public bool? HasValidationErrors { get; set; }
     public string? SearchTerm { get; set; } // Search in documents or order data
+    public string? OrderIdentifier { get; set; } // Search by order identifier
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 20;
     public string? SortBy { get; set; } = "CreatedAt";
@@ -73,6 +74,7 @@ public class OrderListRequest
 public class OrderListResponse
 {
     public int Id { get; set; }
+    public string OrderIdentifier { get; set; } = string.Empty;
     public int BatchId { get; set; }
     public string BatchFileName { get; set; } = string.Empty;
     public int ProjectId { get; set; }
@@ -102,4 +104,46 @@ public class OrderListPagedResponse
     public int TotalPages { get; set; }
     public bool HasNextPage { get; set; }
     public bool HasPreviousPage { get; set; }
+}
+
+public class DocumentResponse
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Type { get; set; }
+    public string Url { get; set; } = string.Empty;
+    public string? BlobName { get; set; }
+    public string? SearchableUrl { get; set; }
+    public string? SearchableBlobName { get; set; }
+    public int Pages { get; set; }
+    public bool HasSearchableText { get; set; }
+    public long? FileSizeBytes { get; set; }
+    public string? FileSizeFormatted { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class OrderDto
+{
+    public int Id { get; set; }
+    public string OrderIdentifier { get; set; } = string.Empty;
+    public int BatchId { get; set; }
+    public string BatchName { get; set; } = string.Empty;
+    public int ProjectId { get; set; }
+    public string ProjectName { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public int Priority { get; set; }
+    public int? AssignedTo { get; set; }
+    public string? AssignedUserName { get; set; }
+    public DateTime? AssignedAt { get; set; }
+    public DateTime? StartedAt { get; set; }
+    public DateTime? CompletedAt { get; set; }
+    public bool HasValidationErrors { get; set; }
+    public List<string> ValidationErrors { get; set; } = new();
+    public int DocumentCount { get; set; }
+    public int FieldCount { get; set; }
+    public int VerifiedFieldCount { get; set; }
+    public decimal CompletionPercentage { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public List<DocumentResponse> Documents { get; set; } = new();
 }

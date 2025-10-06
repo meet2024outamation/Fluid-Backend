@@ -300,6 +300,12 @@ namespace Fluid.Entities.Migrations.Core
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("OrderIdentifier")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("order_identifier");
+
                     b.Property<int>("OrderStatusId")
                         .HasColumnType("integer")
                         .HasColumnName("order_status_id");
@@ -360,6 +366,10 @@ namespace Fluid.Entities.Migrations.Core
                     b.Property<bool>("IsVerified")
                         .HasColumnType("boolean")
                         .HasColumnName("is_verified");
+
+                    b.Property<string>("KeyingValue")
+                        .HasColumnType("text")
+                        .HasColumnName("keying_value");
 
                     b.Property<string>("MetaDataValue")
                         .HasColumnType("text")

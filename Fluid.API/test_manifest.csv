@@ -1,0 +1,5 @@
+loan_id,borrower_name,loan_amount,property_address,document_type,pdf_filename
+LOAN001,John Smith,250000,123 Main St,Income Statement,WV State.pdf
+LOAN001,John Smith,250000,123 Main St,Credit Report,WI State.pdf
+LOAN002,Jane Doe,180000,456 Oak Ave,Income Statement,WV State.pdf
+LOAN002,Jane Doe,180000,456 Oak Ave,Bank Statement,WI State.pdf

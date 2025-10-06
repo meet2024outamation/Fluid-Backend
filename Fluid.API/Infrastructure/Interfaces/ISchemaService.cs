@@ -16,7 +16,7 @@ public interface ISchemaService
     Task<Result<List<SchemaListResponse>>> GetAllAsync(int? projectId = null);
 
     /// <summary>
-    /// Gets a schema by ID with all schema field details
+    /// Gets a specific schema by ID with all its schema fields
     /// </summary>
     Task<Result<SchemaResponse>> GetByIdAsync(int id);
 
@@ -34,4 +34,9 @@ public interface ISchemaService
     /// Deletes a schema and all its schema fields
     /// </summary>
     Task<Result<bool>> DeleteAsync(int id);
+
+    /// <summary>
+    /// Gets information about field mappings for a schema to help with dependency management
+    /// </summary>
+
 }

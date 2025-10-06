@@ -1,21 +1,22 @@
-﻿using SharedKernel.Services;
-using System.Net.Http.Json;
-
-namespace SharedKernel.AuthorizeHandler
+﻿namespace SharedKernel.AuthorizeHandler
 {
-    public class PermissionService : AuthService, IPermissionService
+    public class PermissionService : IPermissionService
     {
-
-        public PermissionService(IUser user) : base(user)
+        public PermissionService()
         {
         }
 
         public async Task<PermissionVM> GetPermissionsAsync()
         {
+            // This service is now deprecated as permission checking is handled by ICurrentUserService
+            // Return empty permissions as a placeholder
+            await Task.CompletedTask;
+            
             return new PermissionVM
             {
-                Moduels = _user.Modules,
-                Permissions = _user.Permissions,
+                Moduels = new HashSet<string>(),
+                Permissions = new HashSet<string>(),
+                PlatformApps = new HashSet<PlatformAppVM>()
             };
         }
     }

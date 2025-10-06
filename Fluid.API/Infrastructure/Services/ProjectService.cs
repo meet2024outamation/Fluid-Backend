@@ -531,7 +531,7 @@ public class ProjectService : IProjectService
                             AssignedAt = projectSchema.CreatedAt
                         });
 
-                        _logger.LogDebug("Assigned schema {SchemaId} to project {ProjectId}", schema.Id, request.ProjectId);
+                        _logger.LogDebug("KeyingInProgress schema {SchemaId} to project {ProjectId}", schema.Id, request.ProjectId);
                     }
                     catch (Exception ex)
                     {
@@ -552,7 +552,7 @@ public class ProjectService : IProjectService
                     Errors = errors
                 };
 
-                _logger.LogInformation("Schema assignment completed for project {ProjectId}. Assigned: {AssignedCount}, Errors: {ErrorCount}",
+                _logger.LogInformation("Schema assignment completed for project {ProjectId}. KeyingInProgress: {AssignedCount}, Errors: {ErrorCount}",
                     request.ProjectId, assignedSchemas.Count, errors.Count);
 
                 return Result<ProjectSchemaAssignmentResponse>.Success(response,

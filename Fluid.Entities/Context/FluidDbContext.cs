@@ -123,6 +123,11 @@ public class FluidDbContext : DbContext
         modelBuilder.Entity<Order>(entity =>
         {
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            
+            // Configure OrderIdentifier as a required string
+            entity.Property(e => e.OrderIdentifier)
+                  .IsRequired()
+                  .HasMaxLength(255);
 
             entity.HasOne(e => e.Batch)
                   .WithMany(b => b.Orders)
@@ -222,6 +227,8 @@ public class FluidIAMDbContext : EFCoreStoreDbContext<Tenant>
     public DbSet<User> Users { get; set; }
     public DbSet<Role> Roles { get; set; }
     public DbSet<UserRole> UserRoles { get; set; }
+    public DbSet<Permission> Permissions { get; set; }
+    public DbSet<RolePermission> RolePermissions { get; set; }
     public DbSet<Tenant> Tenants { get; set; }
     public DbSet<IAM.Schema> Schemas { get; set; }
     public DbSet<IAM.SchemaField> SchemaFields { get; set; }
@@ -254,52 +261,46 @@ public class FluidIAMDbContext : EFCoreStoreDbContext<Tenant>
                   .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // Configure Tenant entity
-        modelBuilder.Entity<Tenant>(entity =>
-        {
-
-            // Ensure Identifier is unique
-            entity.HasIndex(e => e.Identifier).IsUnique();
-
-            entity.HasOne(e => e.CreatedByUser)
-                  .WithMany(u => u.CreatedTenants)
-                  .HasForeignKey(e => e.CreatedBy)
-                  .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(e => e.ModifiedByUser)
-                  .WithMany(u => u.ModifiedTenants)
-                  .HasForeignKey(e => e.ModifiedBy)
-                  .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        // Configure UserRole entity
-        modelBuilder.Entity<UserRole>(entity =>
+        // Configure Permission entity
+        modelBuilder.Entity<Permission>(entity =>
         {
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.HasIndex(e => new { e.UserId, e.RoleId, e.TenantId }).IsUnique();
-
-            entity.HasOne(e => e.User)
-                  .WithMany(u => u.UserRoleUsers)
-                  .HasForeignKey(e => e.UserId)
-                  .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(e => e.Role)
-                  .WithMany(r => r.UserRoleUsers)
-                  .HasForeignKey(e => e.RoleId)
-                  .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(e => e.Tenant)
-                  .WithMany(t => t.UserRoles)
-                  .HasForeignKey(e => e.TenantId)
-                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.Name).IsUnique();
 
             entity.HasOne(e => e.CreatedBy)
-                  .WithMany(u => u.UserRoleCreatedBies)
+                  .WithMany(u => u.PermissionCreatedBies)
                   .HasForeignKey(e => e.CreatedById)
                   .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.ModifiedBy)
-                  .WithMany(u => u.UserRoleModifiedBies)
+                  .WithMany(u => u.PermissionModifiedBies)
+                  .HasForeignKey(e => e.ModifiedById)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Configure RolePermission entity
+        modelBuilder.Entity<RolePermission>(entity =>
+        {
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.HasIndex(e => new { e.RoleId, e.PermissionId }).IsUnique();
+
+            entity.HasOne(e => e.Role)
+                  .WithMany(r => r.RolePermissions)
+                  .HasForeignKey(e => e.RoleId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Permission)
+                  .WithMany(p => p.RolePermissions)
+                  .HasForeignKey(e => e.PermissionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.CreatedBy)
+                  .WithMany(u => u.RolePermissionCreatedBies)
+                  .HasForeignKey(e => e.CreatedById)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.ModifiedBy)
+                  .WithMany(u => u.RolePermissionModifiedBies)
                   .HasForeignKey(e => e.ModifiedById)
                   .OnDelete(DeleteBehavior.Restrict);
         });

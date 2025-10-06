@@ -49,6 +49,33 @@ public static class ResultExtensions
     };
   }
 
+  /// <summary>
+  /// Converts a Result<bool> to an ActionResult for delete operations
+  /// </summary>
+  public static ActionResult ToActionResult(this Result<bool> result)
+  {
+    var statusCode = GetHttpStatusCode(result.Status);
+    
+    if (result.IsSuccess)
+    {
+      return new StatusCodeResult(statusCode == 200 ? 204 : statusCode); // Use 204 NoContent for successful deletes
+    }
+
+    var responseObject = new
+    {
+      status = statusCode,
+      success = result.IsSuccess,
+      errors = result.Errors,
+      validationErrors = result.ValidationErrors,
+      message = result.Errors?.FirstOrDefault() ?? "An error occurred"
+    };
+
+    return new ObjectResult(responseObject)
+    {
+      StatusCode = statusCode
+    };
+  }
+
   private static int GetHttpStatusCode(ResultStatus status)
   {
     return status switch

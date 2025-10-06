@@ -1,0 +1,225 @@
+### Test Role-Scoped Me API
+### This file tests the updated Me API with different role scoping rules
+
+@baseUrl = https://localhost:7253
+@token = your-jwt-token-here
+
+### Store test data
+@tenantId = tenant1-identifier
+@projectId = 1
+
+### ===== PRODUCT OWNER TESTS =====
+### ProductOwner should get global roles and permissions, ignoring tenant/project context
+
+### 1. ProductOwner: Me API without any headers (should work with global context)
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{token}}
+
+### Expected: 200 OK with global roles and permissions
+### Response should have:
+### - contextType: "Global"
+### - roles: ProductOwner roles only
+### - permissions: System-wide permissions (SystemAdmin, ManageRoles, etc.)
+### - currentTenantId: null
+### - currentProjectId: null
+
+### 2. ProductOwner: Me API with tenant header (should still return global context)
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Expected: 200 OK with same global roles and permissions (ignores tenant context)
+
+### 3. ProductOwner: Me API with tenant and project (should still return global context)
+GET {{baseUrl}}/api/users/me?projectId={{projectId}}
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Expected: 200 OK with same global roles and permissions (ignores all context)
+
+### ===== TENANT ADMIN TESTS =====
+### TenantAdmin should get tenant-scoped roles and permissions
+
+### 4. TenantAdmin: Me API without tenant header (should fail)
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{token}}
+
+### Expected: 400 Bad Request - TenantAdmin users must provide X-Tenant-Id header
+
+### 5. TenantAdmin: Me API with tenant header (should succeed)
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Expected: 200 OK with tenant-scoped data
+### Response should have:
+### - contextType: "Tenant"
+### - roles: TenantAdmin and any global roles
+### - permissions: Tenant management permissions
+### - currentTenantId: "tenant1-identifier"
+### - currentTenantName: "Tenant 1 Name"
+### - currentProjectId: null
+
+### 6. TenantAdmin: Me API with invalid tenant (should fail)
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{token}}
+X-Tenant-Id: invalid-tenant-id
+
+### Expected: 400 Bad Request - Tenant not found or inactive
+
+### 7. TenantAdmin: Me API with project parameter (should ignore projectId)
+GET {{baseUrl}}/api/users/me?projectId={{projectId}}
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Expected: 200 OK with tenant-scoped data (ignores project context)
+
+### ===== PROJECT-SCOPED ROLE TESTS (Keying, QC, etc.) =====
+### These roles should require both tenant and project context
+
+### 8. Keying: Me API without tenant header (should fail)
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{token}}
+
+### Expected: 400 Bad Request - Project-scoped roles require X-Tenant-Id header
+
+### 9. Keying: Me API with tenant but no project (should fail)
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Expected: 400 Bad Request - Project-scoped roles require projectId query parameter
+
+### 10. Keying: Me API with tenant and project (should succeed)
+GET {{baseUrl}}/api/users/me?projectId={{projectId}}
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Expected: 200 OK with project-scoped data
+### Response should have:
+### - contextType: "Project"
+### - roles: Keying role and any global roles
+### - permissions: Project management permissions
+### - currentTenantId: "tenant1-identifier"
+### - currentTenantName: "Tenant 1 Name"
+### - currentProjectId: 1
+### - currentProjectName: "Project Name"
+
+### 11. QC: Me API with tenant and project (should succeed)
+GET {{baseUrl}}/api/users/me?projectId={{projectId}}
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Expected: 200 OK with project-scoped data
+### Response should have:
+### - contextType: "Project" 
+### - roles: QC role and any global roles
+### - permissions: Basic operational permissions (ViewOrders, UpdateOrders, etc.)
+
+### 12. Project-scoped: Invalid project ID (should fail)
+GET {{baseUrl}}/api/users/me?projectId=999999
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Expected: 400 Bad Request - Project not found or inactive
+
+### 13. Project-scoped: Invalid project ID format (should fail)
+GET {{baseUrl}}/api/users/me?projectId=invalid
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Expected: 400 Bad Request - Project-scoped roles require projectId query parameter
+
+### 14. Project-scoped: User has no access to project (should fail)
+GET {{baseUrl}}/api/users/me?projectId=2
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Expected: 400 Bad Request - User has no roles assigned to project
+
+### ===== PERMISSION VERIFICATION TESTS =====
+### Verify that permissions are correctly aggregated based on role context
+
+### 15. ProductOwner: Should have SystemAdmin and ManageRoles permissions
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{token}}
+
+### Verify response contains permissions like:
+### - SystemAdmin
+### - ManageRoles  
+### - ManagePermissions
+### - ManageUsers
+### - ManageTenants
+
+### 16. TenantAdmin: Should have tenant-level permissions
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Verify response contains permissions like:
+### - ViewRoles
+### - AssignRoles
+### - ManageUsers
+### - ManageProjects
+### - ManageSchemas
+
+### 17. Keying: Should have project management permissions
+GET {{baseUrl}}/api/users/me?projectId={{projectId}}
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Verify response contains permissions like:
+### - ViewUsers
+### - ManageOrders
+### - ManageBatches
+### - ManageOrderFlows
+### - ViewReports
+
+### 18. QC: Should have basic operational permissions
+GET {{baseUrl}}/api/users/me?projectId={{projectId}}
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Verify response contains permissions like:
+### - ViewOrders
+### - UpdateOrders
+### - ViewBatches
+### - ViewOrderFlows
+### - UpdateOrderFlows
+
+### ===== ERROR HANDLING TESTS =====
+
+### 19. Unauthorized access (no token)
+GET {{baseUrl}}/api/users/me
+X-Tenant-Id: {{tenantId}}
+
+### Expected: 401 Unauthorized
+
+### 20. Invalid token
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer invalid-token
+X-Tenant-Id: {{tenantId}}
+
+### Expected: 401 Unauthorized
+
+### ===== CONTEXT TYPE VERIFICATION =====
+
+### 21. Verify ProductOwner context type
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{token}}
+
+### Expected: "contextType": "Global"
+
+### 22. Verify TenantAdmin context type  
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Expected: "contextType": "Tenant"
+
+### 23. Verify project-scoped context type
+GET {{baseUrl}}/api/users/me?projectId={{projectId}}
+Authorization: Bearer {{token}}
+X-Tenant-Id: {{tenantId}}
+
+### Expected: "contextType": "Project"

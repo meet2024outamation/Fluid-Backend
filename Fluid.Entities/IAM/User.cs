@@ -55,6 +55,18 @@ public class User
     [InverseProperty("ModifiedBy")]
     public virtual ICollection<UserRole> UserRoleModifiedBies { get; set; } = new List<UserRole>();
 
+    [InverseProperty("CreatedBy")]
+    public virtual ICollection<Permission> PermissionCreatedBies { get; set; } = new List<Permission>();
+
+    [InverseProperty("ModifiedBy")]
+    public virtual ICollection<Permission> PermissionModifiedBies { get; set; } = new List<Permission>();
+
+    [InverseProperty("CreatedBy")]
+    public virtual ICollection<RolePermission> RolePermissionCreatedBies { get; set; } = new List<RolePermission>();
+
+    [InverseProperty("ModifiedBy")]
+    public virtual ICollection<RolePermission> RolePermissionModifiedBies { get; set; } = new List<RolePermission>();
+
     // Tenant-related navigation properties
     [InverseProperty("CreatedByUser")]
     public virtual ICollection<Tenant> CreatedTenants { get; set; } = new List<Tenant>();

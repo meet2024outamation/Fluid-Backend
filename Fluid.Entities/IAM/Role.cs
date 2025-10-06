@@ -37,4 +37,7 @@ public class Role
 
     [InverseProperty("Role")]
     public virtual ICollection<UserRole> UserRoleUsers { get; set; } = new List<UserRole>();
+
+    [InverseProperty("Role")]
+    public virtual ICollection<RolePermission> RolePermissions { get; set; } = new List<RolePermission>();
 }

@@ -72,6 +72,62 @@ namespace Fluid.Entities.Migrations.IAM
                     b.ToTable("order_statuses", (string)null);
                 });
 
+            modelBuilder.Entity("Fluid.Entities.IAM.Permission", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("integer")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<DateTimeOffset>("CreatedDateTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_date_time");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<int?>("ModifiedById")
+                        .HasColumnType("integer")
+                        .HasColumnName("modified_by_id");
+
+                    b.Property<DateTimeOffset?>("ModifiedDateTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_date_time");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id")
+                        .HasName("pk_permissions");
+
+                    b.HasIndex("CreatedById")
+                        .HasDatabaseName("ix_permissions_created_by_id");
+
+                    b.HasIndex("ModifiedById")
+                        .HasDatabaseName("ix_permissions_modified_by_id");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_permissions_name");
+
+                    b.ToTable("permissions", (string)null);
+                });
+
             modelBuilder.Entity("Fluid.Entities.IAM.Role", b =>
                 {
                     b.Property<int>("Id")
@@ -126,6 +182,54 @@ namespace Fluid.Entities.Migrations.IAM
                         .HasDatabaseName("ix_roles_modified_by_id");
 
                     b.ToTable("roles", (string)null);
+                });
+
+            modelBuilder.Entity("Fluid.Entities.IAM.RolePermission", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("integer")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<DateTimeOffset>("CreatedDateTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_date_time");
+
+                    b.Property<int?>("ModifiedById")
+                        .HasColumnType("integer")
+                        .HasColumnName("modified_by_id");
+
+                    b.Property<int>("PermissionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("permission_id");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("integer")
+                        .HasColumnName("role_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_role_permissions");
+
+                    b.HasIndex("CreatedById")
+                        .HasDatabaseName("ix_role_permissions_created_by_id");
+
+                    b.HasIndex("ModifiedById")
+                        .HasDatabaseName("ix_role_permissions_modified_by_id");
+
+                    b.HasIndex("PermissionId")
+                        .HasDatabaseName("ix_role_permissions_permission_id");
+
+                    b.HasIndex("RoleId", "PermissionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_role_permissions_role_id_permission_id");
+
+                    b.ToTable("role_permissions", (string)null);
                 });
 
             modelBuilder.Entity("Fluid.Entities.IAM.Schema", b =>
@@ -445,11 +549,29 @@ namespace Fluid.Entities.Migrations.IAM
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_user_roles_tenant_id");
 
-                    b.HasIndex("UserId", "RoleId", "TenantId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_user_roles_user_id_role_id_tenant_id");
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_user_roles_user_id");
 
                     b.ToTable("user_roles", (string)null);
+                });
+
+            modelBuilder.Entity("Fluid.Entities.IAM.Permission", b =>
+                {
+                    b.HasOne("Fluid.Entities.IAM.User", "CreatedBy")
+                        .WithMany("PermissionCreatedBies")
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_permissions_users_created_by_id");
+
+                    b.HasOne("Fluid.Entities.IAM.User", "ModifiedBy")
+                        .WithMany("PermissionModifiedBies")
+                        .HasForeignKey("ModifiedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_permissions_users_modified_by_id");
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("ModifiedBy");
                 });
 
             modelBuilder.Entity("Fluid.Entities.IAM.Role", b =>
@@ -471,6 +593,43 @@ namespace Fluid.Entities.Migrations.IAM
                     b.Navigation("ModifiedBy");
                 });
 
+            modelBuilder.Entity("Fluid.Entities.IAM.RolePermission", b =>
+                {
+                    b.HasOne("Fluid.Entities.IAM.User", "CreatedBy")
+                        .WithMany("RolePermissionCreatedBies")
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_role_permissions_users_created_by_id");
+
+                    b.HasOne("Fluid.Entities.IAM.User", "ModifiedBy")
+                        .WithMany("RolePermissionModifiedBies")
+                        .HasForeignKey("ModifiedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_role_permissions_users_modified_by_id");
+
+                    b.HasOne("Fluid.Entities.IAM.Permission", "Permission")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_role_permissions_permissions_permission_id");
+
+                    b.HasOne("Fluid.Entities.IAM.Role", "Role")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_role_permissions_roles_role_id");
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("ModifiedBy");
+
+                    b.Navigation("Permission");
+
+                    b.Navigation("Role");
+                });
+
             modelBuilder.Entity("Fluid.Entities.IAM.SchemaField", b =>
                 {
                     b.HasOne("Fluid.Entities.IAM.Schema", "Schema")
@@ -488,13 +647,11 @@ namespace Fluid.Entities.Migrations.IAM
                     b.HasOne("Fluid.Entities.IAM.User", "CreatedByUser")
                         .WithMany("CreatedTenants")
                         .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_tenant_users_created_by");
 
                     b.HasOne("Fluid.Entities.IAM.User", "ModifiedByUser")
                         .WithMany("ModifiedTenants")
                         .HasForeignKey("ModifiedBy")
-                        .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_tenant_users_modified_by");
 
                     b.Navigation("CreatedByUser");
@@ -507,13 +664,11 @@ namespace Fluid.Entities.Migrations.IAM
                     b.HasOne("Fluid.Entities.IAM.User", "CreatedBy")
                         .WithMany("UserRoleCreatedBies")
                         .HasForeignKey("CreatedById")
-                        .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_user_roles_users_created_by_id");
 
                     b.HasOne("Fluid.Entities.IAM.User", "ModifiedBy")
                         .WithMany("UserRoleModifiedBies")
                         .HasForeignKey("ModifiedById")
-                        .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_user_roles_users_modified_by_id");
 
                     b.HasOne("Fluid.Entities.IAM.Role", "Role")
@@ -526,7 +681,6 @@ namespace Fluid.Entities.Migrations.IAM
                     b.HasOne("Fluid.Entities.IAM.Tenant", "Tenant")
                         .WithMany("UserRoles")
                         .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
                         .HasConstraintName("fk_user_roles_tenant_tenant_id");
 
                     b.HasOne("Fluid.Entities.IAM.User", "User")
@@ -547,8 +701,15 @@ namespace Fluid.Entities.Migrations.IAM
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Fluid.Entities.IAM.Permission", b =>
+                {
+                    b.Navigation("RolePermissions");
+                });
+
             modelBuilder.Entity("Fluid.Entities.IAM.Role", b =>
                 {
+                    b.Navigation("RolePermissions");
+
                     b.Navigation("UserRoleUsers");
                 });
 
@@ -568,9 +729,17 @@ namespace Fluid.Entities.Migrations.IAM
 
                     b.Navigation("ModifiedTenants");
 
+                    b.Navigation("PermissionCreatedBies");
+
+                    b.Navigation("PermissionModifiedBies");
+
                     b.Navigation("RoleCreatedBies");
 
                     b.Navigation("RoleModifiedBies");
+
+                    b.Navigation("RolePermissionCreatedBies");
+
+                    b.Navigation("RolePermissionModifiedBies");
 
                     b.Navigation("UserRoleCreatedBies");
 

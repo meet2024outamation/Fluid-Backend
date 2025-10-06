@@ -4,6 +4,16 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Fluid.API.Models.User
 {
+    ///// <summary>
+    ///// Enumeration for user context types
+    ///// </summary>
+    //public enum UserContextType
+    //{
+    //    Global,     // ProductOwner - system-wide access
+    //    Tenant,     // TenantAdmin - tenant-scoped access
+    //    Project     // Keying, QC, etc. - project-scoped access
+    //}
+
     public class UserParam
     {
         /// <summary>
@@ -37,7 +47,31 @@ namespace Fluid.API.Models.User
             public DateTime CreatedAt { get; set; }
             public DateTime? UpdatedAt { get; set; }
             public string Name => $"{FirstName} {LastName}".Trim();
+
+            // Roles for the current context (global, tenant, or project)
             public List<UserRoleInfo> Roles { get; set; } = new List<UserRoleInfo>();
+
+            // Permissions aggregated from roles for the current context
+            public List<PermissionInfo> Permissions { get; set; } = new List<PermissionInfo>();
+
+            // Current context information
+            public string? CurrentTenantId { get; set; }
+            public string? CurrentTenantName { get; set; }
+            public int? CurrentProjectId { get; set; }
+            public string? CurrentProjectName { get; set; }
+
+            // Role context type
+            //public UserContextType ContextType { get; set; }
+        }
+
+        /// <summary>
+        /// Permission information for user response
+        /// </summary>
+        public class PermissionInfo
+        {
+            public int Id { get; set; }
+            public string Name { get; set; } = string.Empty;
+            public string? Description { get; set; }
         }
 
         /// <summary>

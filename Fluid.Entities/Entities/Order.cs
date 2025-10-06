@@ -1,6 +1,6 @@
+using Fluid.Entities.IAM; // Use IAM.OrderStatus
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Fluid.Entities.IAM; // Use IAM.OrderStatus
 
 namespace Fluid.Entities.Entities;
 
@@ -8,6 +8,10 @@ public class Order
 {
     [Key]
     public int Id { get; set; }
+    
+    [Required]
+    [StringLength(255)]
+    public string OrderIdentifier { get; set; } = string.Empty;
 
     [ForeignKey(nameof(Batch))]
     public int BatchId { get; set; }

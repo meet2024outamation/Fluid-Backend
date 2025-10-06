@@ -5,7 +5,6 @@ using Fluid.API.Models.IAMSchema;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Result.Extensions;
-using SharedKernel.Services;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace Fluid.API.Endpoints.GlobalSchema;
@@ -17,12 +16,12 @@ public class Create : EndpointBaseAsync
     .WithActionResult<GlobalSchemaResponse>
 {
     private readonly IGlobalSchemaService _globalSchemaService;
-    private readonly IUser _currentUser;
+    private readonly ICurrentUserService _currentUserService;
 
-    public Create(IGlobalSchemaService globalSchemaService, IUser currentUser)
+    public Create(IGlobalSchemaService globalSchemaService, ICurrentUserService currentUserService)
     {
         _globalSchemaService = globalSchemaService;
-        _currentUser = currentUser;
+        _currentUserService = currentUserService;
     }
 
     [HttpPost]
@@ -41,7 +40,8 @@ public class Create : EndpointBaseAsync
         CreateGlobalSchemaRequest request,
         CancellationToken cancellationToken = default)
     {
-        var result = await _globalSchemaService.CreateAsync(request, _currentUser.Id);
+        var userId = _currentUserService.GetCurrentUserId();
+        var result = await _globalSchemaService.CreateAsync(request, userId);
         return result.ToActionResult();
     }
 }

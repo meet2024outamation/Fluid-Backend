@@ -5,7 +5,6 @@ using Fluid.API.Models.IAMSchema;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Result.Extensions;
-using SharedKernel.Services;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace Fluid.API.Endpoints.GlobalSchema;
@@ -17,12 +16,12 @@ public class CopyToTenant : EndpointBaseAsync
     .WithActionResult<CopySchemaToTenantResponse>
 {
     private readonly IGlobalSchemaService _globalSchemaService;
-    private readonly IUser _currentUser;
+    private readonly ICurrentUserService _currentUserService;
 
-    public CopyToTenant(IGlobalSchemaService globalSchemaService, IUser currentUser)
+    public CopyToTenant(IGlobalSchemaService globalSchemaService, ICurrentUserService currentUserService)
     {
         _globalSchemaService = globalSchemaService;
-        _currentUser = currentUser;
+        _currentUserService = currentUserService;
     }
 
     [HttpPost("copy-to-tenant")]
@@ -42,7 +41,8 @@ public class CopyToTenant : EndpointBaseAsync
         CopySchemaToTenantRequest request,
         CancellationToken cancellationToken = default)
     {
-        var result = await _globalSchemaService.CopySchemaToTenantAsync(request, _currentUser.Id);
+        var userId = _currentUserService.GetCurrentUserId();
+        var result = await _globalSchemaService.CopySchemaToTenantAsync(request, userId);
         return result.ToActionResult();
     }
 }

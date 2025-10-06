@@ -1,7 +1,6 @@
 using Finbuckle.MultiTenant;
 using Finbuckle.MultiTenant.Abstractions;
 using Fluid.API.Authorization;
-using Fluid.API.Constants;
 using Fluid.API.Helpers;
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Infrastructure.Services;
@@ -14,7 +13,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
 using Microsoft.OpenApi.Models;
 using SharedKernel.Models;
-using SharedKernel.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,11 +38,11 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AuthorizationPolicies.TenantAdminPolicy, policy =>
         policy.Requirements.Add(new RoleRequirement(ApplicationRoles.TenantAdmin, ApplicationRoles.ProductOwner)));
 
-    options.AddPolicy(AuthorizationPolicies.ManagerPolicy, policy =>
-        policy.Requirements.Add(new RoleRequirement(ApplicationRoles.Manager, ApplicationRoles.TenantAdmin)));
+    options.AddPolicy(AuthorizationPolicies.KeyingPolicy, policy =>
+        policy.Requirements.Add(new RoleRequirement(ApplicationRoles.Keying, ApplicationRoles.TenantAdmin)));
 
-    options.AddPolicy(AuthorizationPolicies.OperatorPolicy, policy =>
-        policy.Requirements.Add(new RoleRequirement(ApplicationRoles.Operator, ApplicationRoles.Manager, ApplicationRoles.TenantAdmin)));
+    options.AddPolicy(AuthorizationPolicies.QCPolicy, policy =>
+        policy.Requirements.Add(new RoleRequirement(ApplicationRoles.QC, ApplicationRoles.Keying, ApplicationRoles.TenantAdmin)));
     options.AddPolicy("RequireTenantAccess", policy =>
     policy.Requirements.Add(new RequireTenantAccessRequirement()));
 });
@@ -52,6 +50,12 @@ builder.Services.AddAuthorization(options =>
 // Register authorization handler
 builder.Services.AddScoped<IAuthorizationHandler, RoleAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, RequireTenantAccessHandler>();
+
+// Register custom policy provider for dynamic permission policies
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+
+// Register permission authorization handler
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
 // Configure Azure AD settings
 builder.Services.Configure<AzureADConfig>(builder.Configuration.GetSection("AzureAdConfig"));
@@ -129,9 +133,13 @@ builder.Services.AddTransient<IOrderStatusService, OrderStatusService>();
 builder.Services.AddTransient<IFieldMappingService, FieldMappingService>();
 builder.Services.AddTransient<ISchemaService, SchemaService>();
 builder.Services.AddTransient<IGlobalSchemaService, GlobalSchemaService>();
-builder.Services.AddTransient<IUser, AuthUser>();
 builder.Services.AddTransient<ITenantService, TenantService>();
 
+// Register permission seeding service
+builder.Services.AddScoped<IPermissionSeedingService, PermissionSeedingService>();
+
+// Register role management service
+builder.Services.AddScoped<IRoleService, RoleService>();
 
 // Add CORS
 
@@ -238,10 +246,15 @@ if (app.Environment.IsDevelopment())
             }
 
             // Seed initial data first (this may create tenants)
-            //await SeedDatabaseAsync(context, iamContext, logger, builder.Configuration);
+            await SeedDatabaseAsync(context, iamContext, logger, builder.Configuration);
+
+            // Run permission seeding
+            var permissionSeedingService = scope.ServiceProvider.GetRequiredService<IPermissionSeedingService>();
+
+            await permissionSeedingService.SeedPermissionsAsync();
+            await permissionSeedingService.SeedDefaultRolePermissionsAsync();
 
             // Apply migrations to all tenant databases
-            //logger.LogInformation("🏢 Starting multi-tenant migration process...");
             await MigrationHelper.ApplyMigrationsAsync(app.Services, logger);
 
             logger.LogInformation("✅ Database initialization completed successfully!");
@@ -325,6 +338,22 @@ static async Task SeedDatabaseAsync(FluidDbContext context, FluidIAMDbContext ia
                     IsForServicePrincipal = false,
                     IsActive = true,
                     CreatedDateTime = DateTimeOffset.UtcNow
+                },
+                new Fluid.Entities.IAM.Role
+                {
+                    Name = ApplicationRoles.Keying,
+                    Description = "Keying role with project and resource management access",
+                    IsForServicePrincipal = false,
+                    IsActive = true,
+                    CreatedDateTime = DateTimeOffset.UtcNow
+                },
+                new Fluid.Entities.IAM.Role
+                {
+                    Name = ApplicationRoles.QC,
+                    Description = "Quality Control role with basic operational access",
+                    IsForServicePrincipal = false,
+                    IsActive = true,
+                    CreatedDateTime = DateTimeOffset.UtcNow
                 }
             };
 
@@ -332,102 +361,6 @@ static async Task SeedDatabaseAsync(FluidDbContext context, FluidIAMDbContext ia
             await iamContext.SaveChangesAsync();
 
             logger.LogInformation("✅ Default roles seeded successfully!");
-        }
-
-        // Seed default schemas if none exist
-        if (!await context.Schemas.AnyAsync())
-        {
-            logger.LogInformation("Seeding default schemas...");
-
-            var systemUser = await iamContext.Users.FirstOrDefaultAsync(u => u.AzureAdId == "system-default");
-            if (systemUser != null)
-            {
-                var defaultSchema = new Fluid.Entities.Entities.Schema
-                {
-                    Name = "Default Loan Schema",
-                    Description = "Default schema for loan processing",
-                    Version = 1,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                    CreatedBy = systemUser.Id
-                };
-
-                context.Schemas.Add(defaultSchema);
-                await context.SaveChangesAsync();
-
-                // Add default schema fields
-                var schemaFields = new[]
-                {
-                    new Fluid.Entities.Entities.SchemaField
-                    {
-                        SchemaId = defaultSchema.Id,
-                        FieldName = "loan_id",
-                        FieldLabel = "Loan ID",
-                        DataType = SchemaFieldDataTypes.String,
-                        IsRequired = true,
-                        DisplayOrder = 1,
-                        CreatedAt = DateTime.UtcNow
-                    },
-                    new Fluid.Entities.Entities.SchemaField
-                    {
-                        SchemaId = defaultSchema.Id,
-                        FieldName = "borrower_name",
-                        FieldLabel = "Borrower Name",
-                        DataType = SchemaFieldDataTypes.String,
-                        IsRequired = true,
-                        DisplayOrder = 2,
-                        CreatedAt = DateTime.UtcNow
-                    },
-                    new Fluid.Entities.Entities.SchemaField
-                    {
-                        SchemaId = defaultSchema.Id,
-                        FieldName = "loan_amount",
-                        FieldLabel = "Loan Amount",
-                        DataType = SchemaFieldDataTypes.DateTime,
-                        Format = "currency",
-                        IsRequired = true,
-                        DisplayOrder = 3,
-                        CreatedAt = DateTime.UtcNow
-                    },
-                    new Fluid.Entities.Entities.SchemaField
-                    {
-                        SchemaId = defaultSchema.Id,
-                        FieldName = "property_address",
-                        FieldLabel = "Property Address",
-                        DataType = SchemaFieldDataTypes.String,
-                        IsRequired = true,
-                        DisplayOrder = 4,
-                        CreatedAt = DateTime.UtcNow
-                    },
-                    new Fluid.Entities.Entities.SchemaField
-                    {
-                        SchemaId = defaultSchema.Id,
-                        FieldName = "application_date",
-                        FieldLabel = "Application Date",
-                        DataType = SchemaFieldDataTypes.Date,
-                        Format = "MM/dd/yyyy",
-                        IsRequired = false,
-                        DisplayOrder = 5,
-                        CreatedAt = DateTime.UtcNow
-                    },
-                    new Fluid.Entities.Entities.SchemaField
-                    {
-                        SchemaId = defaultSchema.Id,
-                        FieldName = "document_type",
-                        FieldLabel = "Document Type",
-                        DataType = SchemaFieldDataTypes.String,
-                        IsRequired = false,
-                        DisplayOrder = 6,
-                        CreatedAt = DateTime.UtcNow
-                    }
-                };
-
-                context.SchemaFields.AddRange(schemaFields);
-                await context.SaveChangesAsync();
-
-                logger.LogInformation("✅ Default schema seeded successfully!");
-            }
         }
 
         logger.LogInformation("✅ Database seeding completed!");

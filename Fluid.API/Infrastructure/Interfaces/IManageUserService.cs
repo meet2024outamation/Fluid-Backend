@@ -17,9 +17,10 @@ public interface IManageUserService
     Task<Result<UserResponse>> GetUserByIdAsync(int id);
 
     /// <summary>
-    /// Gets current user information with simplified role details (for "Me" endpoint)
+    /// Gets current user information with context-scoped role details (for "Me" endpoint)
+    /// Handles different scoping rules based on user's primary role type
     /// </summary>
-    Task<Result<UserMeResponse>> GetCurrentUserAsync(int id);
+    Task<Result<UserMeResponse>> GetCurrentUserAsync(int id, string? tenantId, int? projectId);
 
     /// <summary>
     /// Gets accessible tenants and projects for the current user by user identifier

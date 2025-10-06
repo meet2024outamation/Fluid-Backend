@@ -3,8 +3,8 @@ namespace Fluid.Entities.Enums;
 public enum UserRole
 {
     Admin,
-    Manager,
-    Operator
+    Keying,
+    QC
 }
 
 public enum ProjectStatus
@@ -30,7 +30,7 @@ public enum OrderStatus
     ReadyForAI,
     AIProcessing,
     ReadyForAssignment,
-    Assigned,
+    KeyingInProgress,
     InProgress,
     QCRequired,
     Completed,

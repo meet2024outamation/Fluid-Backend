@@ -86,8 +86,22 @@ namespace Fluid.API.Authorization
                     }
                 }
 
-                // Operator: TenantId + ProjectId required
-                if (roleName == "Operator")
+                // Keying: TenantId required, ProjectId can be null  
+                if (roleName == "Keying")
+                {
+                    if (string.IsNullOrEmpty(tenantIdHeader))
+                        continue;
+
+                    var tenant = await _iamContext.Tenants.FirstOrDefaultAsync(t => t.Identifier == tenantIdHeader);
+                    if (tenant != null && role.TenantId == tenant.Id)
+                    {
+                        context.Succeed(requirement);
+                        return;
+                    }
+                }
+
+                // QC: TenantId + ProjectId required
+                if (roleName == "QC")
                 {
                     if (string.IsNullOrEmpty(tenantIdHeader) || string.IsNullOrEmpty(projectIdHeader))
                         continue;

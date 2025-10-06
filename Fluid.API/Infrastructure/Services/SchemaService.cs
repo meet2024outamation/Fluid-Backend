@@ -228,6 +228,28 @@ public class SchemaService : ISchemaService
                 return Result<SchemaResponse>.Invalid(new List<ValidationError> { validationError });
             }
 
+            // Check if any schema fields have existing field mappings
+            var schemaFieldsWithMappings = await _context.SchemaFields
+                .Where(sf => sf.SchemaId == id)
+                .Include(sf => sf.FieldMappings)
+                .Where(sf => sf.FieldMappings.Any())
+                .ToListAsync();
+
+            if (schemaFieldsWithMappings.Any())
+            {
+                var fieldNames = schemaFieldsWithMappings.Select(sf => sf.FieldName).ToList();
+                var mappingCount = schemaFieldsWithMappings.Sum(sf => sf.FieldMappings.Count);
+
+                var validationError = new ValidationError
+                {
+                    Key = "Schema",
+                    ErrorMessage = $"Cannot update schema because the following fields have existing field mappings: {string.Join(", ", fieldNames)}. " +
+                                 $"Total {mappingCount} field mapping(s) must be removed before updating the schema. " +
+                                 "Please remove all field mappings for this schema first, then try updating again."
+                };
+                return Result<SchemaResponse>.Invalid(new List<ValidationError> { validationError });
+            }
+
             // Validate schema fields
             var validationErrors = ValidateUpdateSchemaFields(request.SchemaFields);
             if (validationErrors.Any())
@@ -239,13 +261,14 @@ public class SchemaService : ISchemaService
 
             try
             {
-                // Update schema
+                // Update schema metadata
                 schema.Name = request.Name.Trim();
                 schema.Description = request.Description?.Trim();
                 schema.UpdatedAt = DateTime.UtcNow;
                 schema.Version++;
 
-                // Remove existing schema fields
+                // Since we've already validated that no field mappings exist,
+                // we can safely remove existing schema fields and create new ones
                 _context.SchemaFields.RemoveRange(schema.SchemaFields);
 
                 // Add updated schema fields
@@ -304,6 +327,30 @@ public class SchemaService : ISchemaService
                 return Result<SchemaResponse>.NotFound();
             }
 
+            // Check if schema has field mappings before deactivating
+            if (!request.IsActive)
+            {
+                var hasFieldMappings = await _context.SchemaFields
+                    .Where(sf => sf.SchemaId == id)
+                    .AnyAsync(sf => sf.FieldMappings.Any());
+
+                if (hasFieldMappings)
+                {
+                    var mappingCount = await _context.SchemaFields
+                        .Where(sf => sf.SchemaId == id)
+                        .SelectMany(sf => sf.FieldMappings)
+                        .CountAsync();
+
+                    var validationError = new ValidationError
+                    {
+                        Key = "Schema",
+                        ErrorMessage = $"Cannot deactivate schema because it has {mappingCount} existing field mapping(s). " +
+                                     "Please remove all field mappings for this schema first, then try deactivating again."
+                    };
+                    return Result<SchemaResponse>.Invalid(new List<ValidationError> { validationError });
+                }
+            }
+
             schema.IsActive = request.IsActive;
             schema.UpdatedAt = DateTime.UtcNow;
 
@@ -327,6 +374,7 @@ public class SchemaService : ISchemaService
         {
             var schema = await _context.Schemas
                 .Include(s => s.SchemaFields)
+                    .ThenInclude(sf => sf.FieldMappings)
                 .Include(s => s.FieldMappings)
                 .FirstOrDefaultAsync(s => s.Id == id);
 
@@ -342,21 +390,49 @@ public class SchemaService : ISchemaService
                 var validationError = new ValidationError
                 {
                     Key = "Schema",
-                    ErrorMessage = "Cannot delete schema as it is being used by field mappings. Please remove all field mappings first."
+                    ErrorMessage = $"Cannot delete schema because it has {schema.FieldMappings.Count} existing field mapping(s). " +
+                                 "Please remove all field mappings for this schema first, then try deleting again."
                 };
                 return Result<bool>.Invalid(new List<ValidationError> { validationError });
             }
 
-            // Remove schema fields first (cascade delete should handle this, but being explicit)
-            _context.SchemaFields.RemoveRange(schema.SchemaFields);
+            // Check if any schema fields have field mappings
+            var schemaFieldsWithMappings = schema.SchemaFields.Where(sf => sf.FieldMappings.Any()).ToList();
+            if (schemaFieldsWithMappings.Any())
+            {
+                var totalMappings = schemaFieldsWithMappings.Sum(sf => sf.FieldMappings.Count);
+                var fieldNames = schemaFieldsWithMappings.Select(sf => sf.FieldName).ToList();
 
-            // Remove the schema
-            _context.Schemas.Remove(schema);
+                var validationError = new ValidationError
+                {
+                    Key = "Schema",
+                    ErrorMessage = $"Cannot delete schema because the following fields have existing field mappings: {string.Join(", ", fieldNames)}. " +
+                                 $"Total {totalMappings} field mapping(s) must be removed before deleting the schema."
+                };
+                return Result<bool>.Invalid(new List<ValidationError> { validationError });
+            }
 
-            await _context.SaveChangesAsync();
+            using var transaction = await _context.Database.BeginTransactionAsync();
 
-            _logger.LogInformation("Schema deleted successfully with ID: {SchemaId}", id);
-            return Result<bool>.Success(true, "Schema deleted successfully");
+            try
+            {
+                // Remove schema fields first (should be safe now since we've validated no mappings exist)
+                _context.SchemaFields.RemoveRange(schema.SchemaFields);
+
+                // Remove the schema
+                _context.Schemas.Remove(schema);
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Schema deleted successfully with ID: {SchemaId}", id);
+                return Result<bool>.Success(true, "Schema deleted successfully");
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
         catch (Exception ex)
         {
@@ -559,4 +635,5 @@ public class SchemaService : ISchemaService
             SchemaFields = schemaFields
         };
     }
+
 }

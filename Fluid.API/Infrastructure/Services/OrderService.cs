@@ -1,6 +1,7 @@
 using Fluid.API.Infrastructure.Interfaces;
 using Fluid.API.Models.Order;
 using Fluid.Entities.Context;
+using Fluid.Entities.Entities;
 using Fluid.Entities.Enums;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Result;
@@ -13,16 +14,280 @@ public class OrderService : IOrderService
     private readonly FluidDbContext _context;
     private readonly FluidIAMDbContext _iamContext;
     private readonly ILogger<OrderService> _logger;
+    private readonly IConfiguration _configuration;
 
-    public OrderService(FluidDbContext context, FluidIAMDbContext iAMDbContext, ILogger<OrderService> logger)
+    public OrderService(FluidDbContext context, FluidIAMDbContext iamContext, ILogger<OrderService> logger, IConfiguration configuration)
     {
         _context = context;
-        _iamContext = iAMDbContext;
+        _iamContext = iamContext;
         _logger = logger;
+        _configuration = configuration;
     }
 
-    private static string GetOrderStatusName(OrderStatus statusEnum)
-        => statusEnum.ToString();
+    public async Task<Result<OrderListPagedResponse>> GetOrdersAsync(OrderListRequest request)
+    {
+        try
+        {
+            var query = _context.Orders
+                .Include(o => o.Batch)
+                .Include(o => o.Project)
+                .Include(o => o.Documents)
+                .Include(o => o.OrderData)
+                .AsQueryable();
+
+            // Apply filters
+            if (request.ProjectId.HasValue)
+            {
+                query = query.Where(o => o.ProjectId == request.ProjectId.Value);
+            }
+
+            if (request.BatchId.HasValue)
+            {
+                query = query.Where(o => o.BatchId == request.BatchId.Value);
+            }
+
+            if (!string.IsNullOrEmpty(request.OrderIdentifier))
+            {
+                query = query.Where(o => EF.Functions.ILike(o.OrderIdentifier, request.OrderIdentifier));
+            }
+
+            if (request.AssignedTo.HasValue)
+            {
+                query = query.Where(o => o.AssignedTo == request.AssignedTo.Value);
+            }
+
+            if (request.CreatedFrom.HasValue)
+            {
+                query = query.Where(o => o.CreatedAt >= request.CreatedFrom.Value);
+            }
+
+            if (request.CreatedTo.HasValue)
+            {
+                query = query.Where(o => o.CreatedAt <= request.CreatedTo.Value);
+            }
+
+            if (request.HasValidationErrors.HasValue)
+            {
+                if (request.HasValidationErrors.Value)
+                {
+                    query = query.Where(o => !string.IsNullOrEmpty(o.ValidationErrors));
+                }
+                else
+                {
+                    query = query.Where(o => string.IsNullOrEmpty(o.ValidationErrors));
+                }
+            }
+
+            if (!string.IsNullOrEmpty(request.SearchTerm))
+            {
+                query = query.Where(o =>
+                    EF.Functions.ILike(o.OrderIdentifier, $"%{request.SearchTerm}%") ||
+                    o.Documents.Any(d => EF.Functions.ILike(d.Name, $"%{request.SearchTerm}%")) ||
+                    o.Documents.Any(d => EF.Functions.ILike(d.SearchableText ?? "", $"%{request.SearchTerm}%")));
+            }
+
+            // Get total count before pagination
+            var totalCount = await query.CountAsync();
+
+            // Apply sorting
+            query = request.SortBy?.ToLowerInvariant() switch
+            {
+                "orderidentifier" => request.SortDirection?.ToUpperInvariant() == "ASC"
+                    ? query.OrderBy(o => o.OrderIdentifier)
+                    : query.OrderByDescending(o => o.OrderIdentifier),
+                "priority" => request.SortDirection?.ToUpperInvariant() == "ASC"
+                    ? query.OrderBy(o => o.Priority)
+                    : query.OrderByDescending(o => o.Priority),
+                "assignedat" => request.SortDirection?.ToUpperInvariant() == "ASC"
+                    ? query.OrderBy(o => o.AssignedAt)
+                    : query.OrderByDescending(o => o.AssignedAt),
+                "completedat" => request.SortDirection?.ToUpperInvariant() == "ASC"
+                    ? query.OrderBy(o => o.CompletedAt)
+                    : query.OrderByDescending(o => o.CompletedAt),
+                _ => request.SortDirection?.ToUpperInvariant() == "ASC"
+                    ? query.OrderBy(o => o.CreatedAt)
+                    : query.OrderByDescending(o => o.CreatedAt)
+            };
+
+            // Apply pagination
+            var orders = await query
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync();
+
+            // Get order status names
+            var orderStatusIds = orders.Select(o => o.OrderStatusId).Distinct().ToList();
+            var orderStatuses = await _iamContext.OrderStatuses
+                .Where(os => orderStatusIds.Contains(os.Id))
+                .ToDictionaryAsync(os => os.Id, os => os.Name ?? "Unknown");
+            var users = await _iamContext.Users.ToDictionaryAsync(u => u.Id, u => u.Name ?? "Unknown");
+            // Map to response
+            var orderResponses = orders.Select(o => new OrderListResponse
+            {
+                Id = o.Id,
+                OrderIdentifier = o.OrderIdentifier,
+                BatchId = o.BatchId,
+                BatchFileName = o.Batch?.FileName ?? "",
+                ProjectId = o.ProjectId,
+                ProjectName = o.Project?.Name ?? "",
+                Status = orderStatuses.TryGetValue(o.OrderStatusId, out var statusName) ? statusName : "Unknown",
+                Priority = o.Priority,
+                AssignedTo = o.AssignedTo,
+                AssignedUserName = o.AssignedTo.HasValue && users.TryGetValue(o.AssignedTo.Value, out var assignedToName)
+                                ? assignedToName
+                                : null,
+                AssignedAt = o.AssignedAt,
+                StartedAt = o.StartedAt,
+                CompletedAt = o.CompletedAt,
+                HasValidationErrors = !string.IsNullOrEmpty(o.ValidationErrors),
+                DocumentCount = o.Documents?.Count ?? 0,
+                FieldCount = o.OrderData?.Count ?? 0,
+                VerifiedFieldCount = o.OrderData?.Count(od => od.IsVerified) ?? 0,
+                CompletionPercentage = o.OrderData?.Any() == true
+                    ? (decimal)o.OrderData.Count(od => od.IsVerified) / o.OrderData.Count * 100
+                    : 0,
+                CreatedAt = o.CreatedAt,
+                UpdatedAt = o.UpdatedAt
+            }).ToList();
+
+            var totalPages = (int)Math.Ceiling((double)totalCount / request.PageSize);
+
+            var response = new OrderListPagedResponse
+            {
+                Orders = orderResponses,
+                TotalCount = totalCount,
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize,
+                TotalPages = totalPages,
+                HasNextPage = request.PageNumber < totalPages,
+                HasPreviousPage = request.PageNumber > 1
+            };
+
+            _logger.LogInformation("Retrieved {Count} orders (page {PageNumber} of {TotalPages})",
+                orderResponses.Count, request.PageNumber, totalPages);
+
+            return Result<OrderListPagedResponse>.Success(response,
+                $"Retrieved {orderResponses.Count} orders successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving orders");
+            return Result<OrderListPagedResponse>.Error("An error occurred while retrieving orders.");
+        }
+    }
+
+
+    public async Task<Result<OrderDto>> GetOrderByIdAsync(int orderId)
+    {
+        try
+        {
+            var order = await _context.Orders
+                .Include(o => o.Batch)
+                .Include(o => o.Project)
+                .Include(o => o.Documents)
+                .Include(o => o.OrderData)
+                .ThenInclude(od => od.SchemaField)
+                .FirstOrDefaultAsync(o => o.Id == orderId);
+
+            if (order == null)
+            {
+                _logger.LogWarning("Order with ID {OrderId} not found", orderId);
+                return Result<OrderDto>.NotFound();
+            }
+
+            // Get order status name
+            var orderStatus = await _iamContext.OrderStatuses
+                .FirstOrDefaultAsync(os => os.Id == order.OrderStatusId);
+
+            // Get validation errors
+            var validationErrors = new List<string>();
+            if (!string.IsNullOrEmpty(order.ValidationErrors))
+            {
+                try
+                {
+                    validationErrors = JsonSerializer.Deserialize<List<string>>(order.ValidationErrors) ?? new List<string>();
+                }
+                catch
+                {
+                    validationErrors.Add(order.ValidationErrors);
+                }
+            }
+
+            // Map documents to response
+            var documentResponses = order.Documents?.Select(d => new DocumentResponse
+            {
+                Id = d.Id,
+                Name = d.Name,
+                Type = d.Type,
+                Url = d.Url,
+                BlobName = d.BlobName,
+                SearchableUrl = d.SearchableUrl,
+                SearchableBlobName = d.SearchableBlobName,
+                Pages = d.Pages,
+                HasSearchableText = !string.IsNullOrEmpty(d.SearchableText),
+                FileSizeBytes = d.FileSize,
+                FileSizeFormatted = FormatFileSize(d.FileSize),
+                CreatedAt = d.CreatedAt
+            }).ToList() ?? new List<DocumentResponse>();
+            var users = await _iamContext.Users.ToDictionaryAsync(u => u.Id, u => u.Name ?? "Unknown");
+
+            var response = new OrderDto
+            {
+                Id = order.Id,
+                OrderIdentifier = order.OrderIdentifier,
+                BatchId = order.BatchId,
+                BatchName = order.Batch?.Name ?? "",
+                ProjectId = order.ProjectId,
+                ProjectName = order.Project?.Name ?? "",
+                Status = orderStatus?.Name ?? "Unknown",
+                Priority = order.Priority,
+                AssignedTo = order.AssignedTo,
+                AssignedAt = order.AssignedAt,
+                AssignedUserName = order.AssignedTo.HasValue && users.TryGetValue(order.AssignedTo.Value, out var assignedToName)
+                ? assignedToName
+                : null,
+                StartedAt = order.StartedAt,
+                CompletedAt = order.CompletedAt,
+                HasValidationErrors = validationErrors.Any(),
+                ValidationErrors = validationErrors,
+                DocumentCount = order.Documents?.Count ?? 0,
+                FieldCount = order.OrderData?.Count ?? 0,
+                VerifiedFieldCount = order.OrderData?.Count(od => od.IsVerified) ?? 0,
+                CompletionPercentage = order.OrderData?.Any() == true
+                    ? (decimal)order.OrderData.Count(od => od.IsVerified) / order.OrderData.Count * 100
+                    : 0,
+                CreatedAt = order.CreatedAt,
+                UpdatedAt = order.UpdatedAt,
+                Documents = documentResponses
+            };
+
+            _logger.LogInformation("Retrieved order with ID: {OrderId}", orderId);
+            return Result<OrderDto>.Success(response, "Order retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving order with ID: {OrderId}", orderId);
+            return Result<OrderDto>.Error("An error occurred while retrieving the order.");
+        }
+    }
+
+    // Helper method to format file size
+    private static string? FormatFileSize(long? fileSizeBytes)
+    {
+        if (!fileSizeBytes.HasValue || fileSizeBytes.Value == 0)
+            return null;
+
+        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+        double len = fileSizeBytes.Value;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+
+        return $"{len:0.##} {sizes[order]}";
+    }
 
     public async Task<Result<AssignOrderResponse>> AssignOrderAsync(AssignOrderRequest request, int currentUserId)
     {
@@ -92,7 +357,7 @@ public class OrderService : IOrderService
             }
 
             // Get the "Assigned" status using enum
-            var assignedStatusName = GetOrderStatusName(OrderStatus.Assigned);
+            var assignedStatusName = GetOrderStatusName(OrderStatus.KeyingInProgress);
             var assignedStatus = await _iamContext.OrderStatuses
                 .FirstOrDefaultAsync(os => os.Name == assignedStatusName && os.IsActive);
 
@@ -101,7 +366,7 @@ public class OrderService : IOrderService
                 var validationError = new ValidationError
                 {
                     Key = "OrderStatus",
-                    ErrorMessage = "Assigned status not found or inactive."
+                    ErrorMessage = "KeyingInProgress status not found or inactive."
                 };
                 return Result<AssignOrderResponse>.Invalid(new List<ValidationError> { validationError });
             }
@@ -137,13 +402,12 @@ public class OrderService : IOrderService
         }
     }
 
-    public async Task<Result<UpdateSchemaFieldValueResponse>> UpdateSchemaFieldValueAsync(UpdateSchemaFieldValueRequest request, int currentUserId, string? ipAddress = null, string? userAgent = null)
-    {
-        using var transaction = await _context.Database.BeginTransactionAsync();
 
+    public async Task<Result<UpdateSchemaFieldValueResponse>> UpdateSchemaFieldValueAsync(
+        UpdateSchemaFieldValueRequest request, int currentUserId, string? ipAddress, string? userAgent)
+    {
         try
         {
-            // Validate OrderData exists with all related entities
             var orderData = await _context.OrderData
                 .Include(od => od.Order)
                 .Include(od => od.SchemaField)
@@ -151,325 +415,64 @@ public class OrderService : IOrderService
 
             if (orderData == null)
             {
-                var validationError = new ValidationError
-                {
-                    Key = nameof(request.OrderDataId),
-                    ErrorMessage = "Order data record not found."
-                };
-                return Result<UpdateSchemaFieldValueResponse>.Invalid(new List<ValidationError> { validationError });
+                return Result<UpdateSchemaFieldValueResponse>.NotFound();
             }
 
-            // Validate current user exists
-            var currentUser = await _iamContext.Users
-                .FirstOrDefaultAsync(u => u.Id == currentUserId);
+            var oldValue = orderData.ProcessedValue ?? orderData.MetaDataValue ?? "";
 
-            if (currentUser == null)
-            {
-                var validationError = new ValidationError
-                {
-                    Key = "CurrentUser",
-                    ErrorMessage = "Current user not found."
-                };
-                return Result<UpdateSchemaFieldValueResponse>.Invalid(new List<ValidationError> { validationError });
-            }
-
-            // Store old values for audit logging
-            var oldValues = new
-            {
-                ProcessedValue = orderData.ProcessedValue,
-                IsVerified = orderData.IsVerified,
-                VerifiedBy = orderData.VerifiedBy,
-                VerifiedAt = orderData.VerifiedAt,
-                PageNumber = orderData.PageNumber,
-                Coordinates = orderData.Coordinates,
-                UpdatedAt = orderData.UpdatedAt
-            };
-
-            // Update the field value
-            var oldProcessedValue = orderData.ProcessedValue ?? string.Empty;
+            // Update the order data
             orderData.ProcessedValue = request.NewValue;
             orderData.IsVerified = true;
             orderData.VerifiedBy = currentUserId;
             orderData.VerifiedAt = DateTime.UtcNow;
             orderData.UpdatedAt = DateTime.UtcNow;
+            orderData.PageNumber = request.PageNumber;
+            orderData.Coordinates = request.Coordinates;
 
-            // Update page number and coordinates if provided
-            if (request.PageNumber.HasValue)
-            {
-                orderData.PageNumber = request.PageNumber.Value;
-            }
-
-            if (!string.IsNullOrEmpty(request.Coordinates))
-            {
-                orderData.Coordinates = request.Coordinates;
-            }
-
-            // Prepare new values for audit logging
-            var newValues = new
-            {
-                ProcessedValue = orderData.ProcessedValue,
-                IsVerified = orderData.IsVerified,
-                VerifiedBy = orderData.VerifiedBy,
-                VerifiedAt = orderData.VerifiedAt,
-                PageNumber = orderData.PageNumber,
-                Coordinates = orderData.Coordinates,
-                UpdatedAt = orderData.UpdatedAt,
-                Reason = request.Reason ?? "Manual field update"
-            };
-
-            // Save the updated order data
             await _context.SaveChangesAsync();
 
-            // Create audit log entry
-            await CreateAuditLogAsync(
-                tableName: "OrderData",
-                recordId: orderData.Id,
-                action: AuditAction.UPDATE,
-                oldValues: oldValues,
-                newValues: newValues,
-                changedBy: currentUserId,
-                ipAddress: ipAddress,
-                userAgent: userAgent
-            );
-
-            await transaction.CommitAsync();
-
-            // Prepare response
-            var response = new UpdateSchemaFieldValueResponse
+            // Create audit log
+            var auditLog = new AuditLog
             {
-                OrderDataId = orderData.Id,
-                OrderId = orderData.OrderId,
-                SchemaFieldName = orderData.SchemaField.FieldName,
-                OldValue = oldProcessedValue,
-                NewValue = orderData.ProcessedValue,
-                UpdatedByName = currentUser.Name,
-                UpdatedAt = orderData.UpdatedAt,
-                Reason = request.Reason ?? "Manual field update",
-                IsVerified = orderData.IsVerified,
-                Message = "Schema field value updated successfully"
-            };
-
-            _logger.LogInformation("Schema field value updated successfully. OrderDataId: {OrderDataId}, OrderId: {OrderId}, Field: {FieldName}, OldValue: '{OldValue}', NewValue: '{NewValue}', UpdatedBy: {UserId} ({UserName})",
-                orderData.Id, orderData.OrderId, orderData.SchemaField.FieldName, oldProcessedValue, request.NewValue, currentUserId, currentUser.Name);
-
-            return Result<UpdateSchemaFieldValueResponse>.Success(response, "Schema field value updated successfully");
-        }
-        catch (Exception ex)
-        {
-            await transaction.RollbackAsync();
-            _logger.LogError(ex, "Error updating schema field value for OrderDataId: {OrderDataId}", request.OrderDataId);
-            return Result<UpdateSchemaFieldValueResponse>.Error("An error occurred while updating the schema field value.");
-        }
-    }
-
-    /// <summary>
-    /// Creates an audit log entry for tracking changes
-    /// </summary>
-    private async Task CreateAuditLogAsync(string tableName, int recordId, AuditAction action, object? oldValues, object? newValues, int changedBy, string? ipAddress, string? userAgent)
-    {
-        try
-        {
-            var auditLog = new Entities.Entities.AuditLog
-            {
-                TableName = tableName,
-                RecordId = recordId,
-                Action = action,
-                OldValues = oldValues != null ? JsonSerializer.Serialize(oldValues, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }) : null,
-                NewValues = newValues != null ? JsonSerializer.Serialize(newValues, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }) : null,
-                ChangedBy = changedBy,
+                TableName = "OrderData",
+                RecordId = orderData.Id,
+                Action = AuditAction.UPDATE,
+                OldValues = System.Text.Json.JsonSerializer.Serialize(new { ProcessedValue = oldValue }),
+                NewValues = System.Text.Json.JsonSerializer.Serialize(new { ProcessedValue = request.NewValue }),
+                ChangedBy = currentUserId,
                 ChangedAt = DateTime.UtcNow,
-                IpAddress = ipAddress,
+                IpAddress = ipAddress?[..Math.Min(45, ipAddress.Length)], // Truncate to fit the column
                 UserAgent = userAgent
             };
 
             _context.AuditLogs.Add(auditLog);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Audit log created for {Action} on {TableName} record {RecordId} by user {UserId}",
-                action, tableName, recordId, changedBy);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating audit log for {Action} on {TableName} record {RecordId}",
-                action, tableName, recordId);
-            // Don't throw - audit log failures shouldn't break the main operation
-        }
-    }
-
-    public async Task<Result<OrderListPagedResponse>> GetOrdersAsync(OrderListRequest request, int currentUserId)
-    {
-        try
-        {
-            // Build the base query
-            var query = _context.Orders
-                .Include(o => o.Batch)
-                .Include(o => o.Project)
-                .Include(o => o.Documents)
-                .Include(o => o.OrderData)
-                .ThenInclude(od => od.SchemaField)
-                .AsQueryable();
-
-            // Apply filters
-            if (request.ProjectId.HasValue)
+            var response = new UpdateSchemaFieldValueResponse
             {
-                query = query.Where(o => o.ProjectId == request.ProjectId.Value);
-            }
-
-            if (request.BatchId.HasValue)
-            {
-                query = query.Where(o => o.BatchId == request.BatchId.Value);
-            }
-
-            if (!string.IsNullOrEmpty(request.Status))
-            {
-                if (Enum.TryParse<OrderStatus>(request.Status, true, out var statusEnum))
-                {
-                    var statusName = GetOrderStatusName(statusEnum);
-                    var statusId = await _iamContext.OrderStatuses.Where(os => os.Name == statusName).Select(os => os.Id).FirstOrDefaultAsync();
-                    query = query.Where(o => o.OrderStatusId == statusId);
-                }
-                else
-                {
-                    var statusId = await _iamContext.OrderStatuses.Where(os => os.Name == request.Status).Select(os => os.Id).FirstOrDefaultAsync();
-                    query = query.Where(o => o.OrderStatusId == statusId);
-                }
-            }
-
-            if (request.AssignedTo.HasValue)
-            {
-                query = query.Where(o => o.AssignedTo == request.AssignedTo.Value);
-            }
-
-            if (request.CreatedFrom.HasValue)
-            {
-                query = query.Where(o => o.CreatedAt >= request.CreatedFrom.Value);
-            }
-
-            if (request.CreatedTo.HasValue)
-            {
-                query = query.Where(o => o.CreatedAt <= request.CreatedTo.Value);
-            }
-
-            if (request.Priority > 0)
-            {
-                query = query.Where(o => o.Priority >= request.Priority);
-            }
-
-            if (request.HasValidationErrors.HasValue)
-            {
-                if (request.HasValidationErrors.Value)
-                {
-                    query = query.Where(o => !string.IsNullOrEmpty(o.ValidationErrors));
-                }
-                else
-                {
-                    query = query.Where(o => string.IsNullOrEmpty(o.ValidationErrors));
-                }
-            }
-
-            // Search functionality
-            if (!string.IsNullOrEmpty(request.SearchTerm))
-            {
-                var searchTerm = request.SearchTerm.ToLower();
-                query = query.Where(o =>
-                    o.Documents.Any(d => d.SearchableText != null && d.SearchableText.ToLower().Contains(searchTerm)) ||
-                    o.OrderData.Any(od => od.ProcessedValue != null && od.ProcessedValue.ToLower().Contains(searchTerm)) ||
-                    o.Batch.FileName.ToLower().Contains(searchTerm) ||
-                    o.Project.Name.ToLower().Contains(searchTerm)
-                );
-            }
-
-            // Get total count before pagination
-            var totalCount = await query.CountAsync();
-
-            // Apply sorting
-            query = ApplySorting(query, request.SortBy, request.SortDirection);
-
-            // Apply pagination
-            var skip = (request.PageNumber - 1) * request.PageSize;
-            var orders = await query
-                .Skip(skip)
-                .Take(request.PageSize)
-                .ToListAsync();
-            var userIds = orders.Select(o => o.AssignedTo).Where(id => id != null).Distinct().ToList();
-
-            var users = await _iamContext.Users
-                .Where(u => userIds.Contains(u.Id))
-                .ToDictionaryAsync(u => u.Id, u => u.Name);
-            var orderStatusDict = await _iamContext.OrderStatuses.ToDictionaryAsync(os => os.Id, os => os.Name);
-            // Map to response DTOs
-            var orderResponses = orders.Select(o => new OrderListResponse
-            {
-                Id = o.Id,
-                BatchId = o.BatchId,
-                BatchFileName = o.Batch.FileName,
-                ProjectId = o.ProjectId,
-                ProjectName = o.Project.Name,
-                Status = orderStatusDict.TryGetValue(o.OrderStatusId, out var statusName) ? statusName : "Unknown",
-                Priority = o.Priority,
-                AssignedTo = o.AssignedTo,
-                AssignedUserName = o.AssignedTo != null && users.ContainsKey(o.AssignedTo.Value)
-                                    ? users[o.AssignedTo.Value]
-                                    : null,
-                AssignedAt = o.AssignedAt,
-                StartedAt = o.StartedAt,
-                CompletedAt = o.CompletedAt,
-                HasValidationErrors = !string.IsNullOrEmpty(o.ValidationErrors),
-                DocumentCount = o.Documents.Count,
-                FieldCount = o.OrderData.Count,
-                VerifiedFieldCount = o.OrderData.Count(od => od.IsVerified),
-                CompletionPercentage = o.OrderData.Count > 0
-                    ? Math.Round((decimal)o.OrderData.Count(od => od.IsVerified) / o.OrderData.Count * 100, 2)
-                    : 0,
-                CreatedAt = o.CreatedAt,
-                UpdatedAt = o.UpdatedAt
-            }).ToList();
-
-            // Calculate pagination info
-            var totalPages = (int)Math.Ceiling((double)totalCount / request.PageSize);
-
-            var response = new OrderListPagedResponse
-            {
-                Orders = orderResponses,
-                TotalCount = totalCount,
-                PageNumber = request.PageNumber,
-                PageSize = request.PageSize,
-                TotalPages = totalPages,
-                HasNextPage = request.PageNumber < totalPages,
-                HasPreviousPage = request.PageNumber > 1
+                OrderDataId = orderData.Id,
+                OrderId = orderData.OrderId,
+                SchemaFieldName = orderData.SchemaField?.FieldName ?? "",
+                OldValue = oldValue,
+                NewValue = request.NewValue,
+                UpdatedAt = orderData.UpdatedAt,
+                Reason = request.Reason ?? "",
+                IsVerified = orderData.IsVerified,
+                Message = "Schema field value updated successfully"
             };
 
-            _logger.LogInformation("Retrieved {Count} orders (page {PageNumber} of {TotalPages}) for user {UserId}",
-                orderResponses.Count, request.PageNumber, totalPages, currentUserId);
+            _logger.LogInformation("Schema field value updated for OrderData {OrderDataId} by user {UserId}",
+                request.OrderDataId, currentUserId);
 
-            return Result<OrderListPagedResponse>.Success(response, $"Retrieved {orderResponses.Count} orders successfully");
+            return Result<UpdateSchemaFieldValueResponse>.Success(response, "Schema field value updated successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving orders for user {UserId}", currentUserId);
-            return Result<OrderListPagedResponse>.Error("An error occurred while retrieving orders.");
+            _logger.LogError(ex, "Error updating schema field value for OrderData {OrderDataId}", request.OrderDataId);
+            return Result<UpdateSchemaFieldValueResponse>.Error("An error occurred while updating the schema field value.");
         }
     }
 
-    /// <summary>
-    /// Applies sorting to the orders query
-    /// </summary>
-    private static IQueryable<Entities.Entities.Order> ApplySorting(IQueryable<Entities.Entities.Order> query, string? sortBy, string? sortDirection)
-    {
-        var isDescending = sortDirection?.ToUpper() == "DESC";
-        // Remove status sorting by navigation property
-        return sortBy?.ToLower() switch
-        {
-            "id" => isDescending ? query.OrderByDescending(o => o.Id) : query.OrderBy(o => o.Id),
-            "batchid" => isDescending ? query.OrderByDescending(o => o.BatchId) : query.OrderBy(o => o.BatchId),
-            "projectname" => isDescending ? query.OrderByDescending(o => o.Project.Name) : query.OrderBy(o => o.Project.Name),
-            // Sorting by status name must be handled after fetching data
-            "priority" => isDescending ? query.OrderByDescending(o => o.Priority) : query.OrderBy(o => o.Priority),
-            "assignedat" => isDescending ? query.OrderByDescending(o => o.AssignedAt) : query.OrderBy(o => o.AssignedAt),
-            "startedat" => isDescending ? query.OrderByDescending(o => o.StartedAt) : query.OrderBy(o => o.StartedAt),
-            "completedat" => isDescending ? query.OrderByDescending(o => o.CompletedAt) : query.OrderBy(o => o.CompletedAt),
-            "updatedat" => isDescending ? query.OrderByDescending(o => o.UpdatedAt) : query.OrderBy(o => o.UpdatedAt),
-            "createdat" or _ => isDescending ? query.OrderByDescending(o => o.CreatedAt) : query.OrderBy(o => o.CreatedAt)
-        };
-    }
+    private static string GetOrderStatusName(OrderStatus statusEnum)
+        => statusEnum.ToString();
 }
